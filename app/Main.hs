@@ -6,6 +6,7 @@ import Data.Time.Format
 import Data.Set
 import Data.List
 import qualified Data.Map as M
+import Data.Semigroup
 
 -- | Example
 
@@ -43,7 +44,7 @@ instance Semilattice Path
 
 
 data Content = Content {
-    contentMap :: MapMax String Qty
+    contentMap :: SMap String (Max Int)
 } deriving (Show, Eq)
 
 instance Semigroup Content where
@@ -54,55 +55,15 @@ instance Monoid Content where
 
 instance Semilattice Content
 
--- data CountedItems = CountedItems {
---     countentItemsName :: String,
---     countedItemsQty :: Qty
--- }
-
-newtype MapMax k v = MapMax { mapMax :: M.Map k v}
-
-deriving instance (Show k, Show v) => Show (MapMax k v)
-
-instance (Eq k, Eq v) => Eq (MapMax k v) where
-    mm1 == mm2 = mapMax mm1 == mapMax mm2
-
-instance (Ord k, Semigroup v) => Semigroup (MapMax k v) where
-    mm1 <> mm2 = MapMax $ M.unionWith (<>) (mapMax mm1) (mapMax mm2)
-
-instance (Ord k, Semigroup v) => Monoid (MapMax k v) where
-    mempty = MapMax M.empty 
-
-instance (Ord k, Eq k, Semilattice v) => Semilattice (MapMax k v)
-
-
--- instance (Eq k, Semilattice v) => Semilattice (MapMax k v) where
-
-data Qty = Qty { qty :: Int } deriving (Show, Eq)
-
-instance Semigroup Qty where
-    q1 <> q2 = Qty $ max (qty q1) (qty q2)
-
-instance Monoid Qty where
-    mempty = Qty 0
-
-instance Semilattice Qty
-
--- events
-locationSet :: L -> Container
-locationSet l = Container (Path [l]) mempty
-
-contentAdded :: String -> Int -> Container
-contentAdded s i = Container mempty (Content (MapMax (M.singleton s (Qty i))))
-
--- goals
-content :: M.Map String Qty -> Container
-content map = Container mempty (Content (MapMax map))
-
+-- events/goals
 location :: L -> Container
 location l = Container (Path [l]) mempty
 
+content :: String -> Int -> Container
+content s i = Container mempty (Content (SMap (M.singleton s (Max i))))
+
 main :: IO ()
 main = do
-    let state = mconcat [locationSet LB, contentAdded "coke" 3, locationSet LA, contentAdded "pepsi" 7]
-    let goal = mconcat [content (M.fromList [("coke", Qty 2), ("pepsi", Qty 7)]), location LB]
+    let state = location LB <> content "coke" 3 <> content "fanta" 8 <> location LA <> content "pepsi" 7 <> content "coke" 5
+    let goal = content "coke" 4 <> content "pepsi" 6 <> location LB
     print $ isAchieved goal state
