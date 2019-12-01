@@ -47,3 +47,8 @@ instance Ord a => Semilattice (SSet a)
 
 -- |
 instance (Eq a, Ord a, Bounded a) => Semilattice (Max a)
+
+-- |
+data SBool = SBool {
+    Maybe 
+}
