@@ -16,9 +16,6 @@ data Container p = Container {
 instance Ord p => Semigroup (Container p) where
     (Container l1 c1) <> (Container l2 c2) = Container (l1 <> l2) (c1 <> c2)
 
-instance Ord p => Monoid (Container p) where
-    mempty = Container mempty mempty 
-
 instance (Ord p, Eq p) => Semilattice (Container p)
 
 data Location = LA | LB | LC deriving (Show, Eq, Ord)
