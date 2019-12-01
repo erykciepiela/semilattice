@@ -1,22 +1,16 @@
 module Main where
 
 import Semilattice
-import Data.Time
-import Data.Time.Format
-import Data.Set
-import Data.List
+import Data.Set as S
 import qualified Data.Map as M
 import Data.Semigroup
 
--- | Example
-
--- Can we have a semilattice Container where
+-- Can we have a semilattice container where
 -- a) container location is changing
 -- b) container content is changing
-
 data Container p = Container {
-    containerPath :: Path,
-    containerContent :: Content p
+    containerPath :: SSet Location,
+    containerPositionContent :: SMap (p, String) (Max Int)
 } deriving (Show, Eq)
 
 instance Ord p => Semigroup (Container p) where
@@ -27,40 +21,14 @@ instance Ord p => Monoid (Container p) where
 
 instance (Ord p, Eq p) => Semilattice (Container p)
 
-
-data L = LA | LB | LC deriving (Show, Eq)
-
-data Path = Path {
-    pathLocs :: [L]
-} deriving (Show, Eq)
-
-instance Semigroup Path where
-    (Path ls1) <> (Path ls2) = Path $ nub $ ls1 <> ls2
-
-instance Monoid Path where 
-    mempty = Path mempty
-
-instance Semilattice Path
-
-
-data Content p = Content {
-    contentMap :: SMap (p, String) (Max Int)
-} deriving (Show, Eq)
-
-instance Ord p => Semigroup (Content p) where
-    (Content map1) <> (Content map2) = Content $ map1 <> map2
-
-instance Ord p => Monoid (Content p) where
-    mempty = Content mempty
-
-instance (Eq p, Ord p) => Semilattice (Content p)
+data Location = LA | LB | LC deriving (Show, Eq, Ord)
 
 -- events/goals
-location :: Ord p => L -> Container p
-location l = Container (Path [l]) mempty
+location :: Ord p => Location -> Container p
+location l = Container (SSet (S.singleton l)) mempty
 
 content :: p -> String -> Int -> Container p
-content p s i = Container mempty (Content (SMap (M.singleton (p, s) (Max i))))
+content p s i = Container mempty (SMap (M.singleton (p, s) (Max i)))
 
 main :: IO ()
 main = do

@@ -1,6 +1,7 @@
 module Semilattice where
 
 import qualified Data.Map as M
+import qualified Data.Set as S
 import Data.Semigroup
 
 -- | <> denotes "merging" knowledge
@@ -35,6 +36,20 @@ instance (Ord k, Semigroup v) => Monoid (SMap k v) where
     mempty = SMap M.empty 
 
 instance (Ord k, Eq k, Semilattice v) => Semilattice (SMap k v)
+
+-- | Wrapper over set that instantiates samilattice
+data SSet a = SSet { sset :: S.Set a}
+
+deriving instance Show a => Show (SSet a)
+deriving instance Eq a => Eq (SSet a)
+
+instance Ord a => Semigroup (SSet a) where
+    s1 <> s2 = SSet (sset s1 `S.union` sset s2)
+
+instance Ord a => Monoid (SSet a) where
+    mempty = SSet S.empty 
+
+instance Ord a => Semilattice (SSet a)
 
 -- |
 instance (Eq a, Ord a, Bounded a) => Semilattice (Max a)
