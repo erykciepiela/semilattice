@@ -24,6 +24,8 @@ instance Semilattice Any
 
 newtype SList a = SList { slist :: [a] } 
 
+deriving instance Show a => Show (SList a)
+
 instance Semigroup a => Semigroup (SList a) where
     l1 <> l2 = SList $ foldl1 (<>) <$> transpose [slist l1, slist l2]
 
