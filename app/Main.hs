@@ -14,18 +14,18 @@ import Data.Semigroup
 -- a) container location is changing
 -- b) container content is changing
 
-data Container = Container {
+data Container p = Container {
     containerPath :: Path,
-    containerContent :: Content
+    containerContent :: Content p
 } deriving (Show, Eq)
 
-instance Semigroup Container where
+instance Ord p => Semigroup (Container p) where
     (Container l1 c1) <> (Container l2 c2) = Container (l1 <> l2) (c1 <> c2)
 
-instance Monoid Container where
+instance Ord p => Monoid (Container p) where
     mempty = Container mempty mempty 
 
-instance Semilattice Container
+instance (Ord p, Eq p) => Semilattice (Container p)
 
 
 data L = LA | LB | LC deriving (Show, Eq)
@@ -43,27 +43,28 @@ instance Monoid Path where
 instance Semilattice Path
 
 
-data Content = Content {
-    contentMap :: SMap String (Max Int)
+data Content p = Content {
+    contentMap :: SMap (p, String) (Max Int)
 } deriving (Show, Eq)
 
-instance Semigroup Content where
+instance Ord p => Semigroup (Content p) where
     (Content map1) <> (Content map2) = Content $ map1 <> map2
 
-instance Monoid Content where
+instance Ord p => Monoid (Content p) where
     mempty = Content mempty
 
-instance Semilattice Content
+instance (Eq p, Ord p) => Semilattice (Content p)
 
 -- events/goals
-location :: L -> Container
+location :: Ord p => L -> Container p
 location l = Container (Path [l]) mempty
 
-content :: String -> Int -> Container
-content s i = Container mempty (Content (SMap (M.singleton s (Max i))))
+content :: p -> String -> Int -> Container p
+content p s i = Container mempty (Content (SMap (M.singleton (p, s) (Max i))))
 
 main :: IO ()
 main = do
-    let state = location LB <> content "coke" 3 <> content "fanta" 8 <> location LA <> content "pepsi" 7 <> content "coke" 5
-    let goal = content "coke" 4 <> content "pepsi" 6 <> location LB
+    let state = location LB <> content 1 "coke" 3 <> content 2 "fanta" 8 <> location LA <> content 3 "pepsi" 7 <> content 1 "coke" 5
+    let goal = content 1 "coke" 4 <> content 3 "pepsi" 6 <> location LB
     print $ isAchieved goal state
+    print state
