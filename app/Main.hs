@@ -64,7 +64,8 @@ content p s i = Container mempty (Content (SMap (M.singleton (p, s) (Max i))))
 
 main :: IO ()
 main = do
-    let state = location LB <> content 1 "coke" 3 <> content 2 "fanta" 8 <> location LA <> content 3 "pepsi" 7 <> content 1 "coke" 5
-    let goal = content 1 "coke" 4 <> content 3 "pepsi" 6 <> location LB
+    let state = location LB <> content 1 "coke" 3 <> content 1 "coke" 3 <> content 2 "fanta" 6 <> location LA <> content 3 "pepsi" 7 <> content 1 "coke" 5
+    let goal = content 1 "coke" 5 <> content 3 "pepsi" 7 <> content 2 "fanta" 8 <> location LB <> location LA
+    print $ leads state (content 2 "fanta" 8) goal
     print $ isAchieved goal state
     print state

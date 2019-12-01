@@ -13,6 +13,9 @@ class (Eq s, Monoid s) => Semilattice s where
 isAchieved :: Semilattice s => s -> s -> Bool
 isAchieved goal s = s <> goal == s
 
+leads :: Semilattice s => s -> s -> s -> Bool
+leads source step target = source <> step <> target == target
+
 isAchieved' :: Semilattice s => s -> [s] -> Bool
 isAchieved' goal ss = isAchieved goal (mconcat ss)
 
