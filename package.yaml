@@ -23,12 +23,15 @@ default-extensions:
 - StandaloneDeriving
 - DeriveAnyClass
 - MultiParamTypeClasses
+- FunctionalDependencies
+- FlexibleInstances
 
 dependencies:
 - base >= 4.7 && < 5
 - time -any
 - containers -any
 - appendmap -any
+- stm -any
 
 library:
   source-dirs: src
