@@ -22,6 +22,8 @@ instance Ord p => Semigroup (ContainerS p) where
 
 instance Ord p => JoinSemilattice (ContainerS p)
 
+instance Eq p => Eq (ContainerS p)
+
 data Location = LA | LB | LC deriving (Show, Eq, Ord)
 
 -- events/goals

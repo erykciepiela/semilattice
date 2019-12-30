@@ -25,6 +25,7 @@ default-extensions:
 - MultiParamTypeClasses
 - FunctionalDependencies
 - FlexibleInstances
+- GADTs
 
 dependencies:
 - base >= 4.7 && < 5
