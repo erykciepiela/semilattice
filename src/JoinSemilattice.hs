@@ -1,16 +1,29 @@
-module JoinSemilattice where
+module JoinSemilattice (
+    JoinSemilattice,
+    (+>),
+    (<+),
+    (<<+),
+    (+>>),
+    (<+>),
+    UnionSet,
+    IntersectionSet,
+    SList,
+    -- SMap,
+    Promise,
+) where
 
 import Prelude hiding (id, (.))
 import Data.Set as S
 import Data.Semigroup
 import Data.Map.Append
 import Data.List
-import Control.Arrow
-import Control.Concurrent.STM
+-- import Control.Arrow
+-- import Control.Concurrent.STM
 import Control.Category
 import Data.Proxy
 import Data.Functor.Identity
 import Data.Void
+import Data.Map.Append
 
 class (Eq s, Semigroup s) => JoinSemilattice s where
     -- a <> b = b <> a - commutativity, saves us from out of order messages problem
@@ -78,10 +91,50 @@ instance Eq a => Semigroup (Promise a) where
 instance Eq a => JoinSemilattice (Promise a)
 
 -- product join semilattice
-instance (JoinSemilattice a, JoinSemilattice b) => JoinSemilattice (a, b) where
+instance (JoinSemilattice a, JoinSemilattice b) => JoinSemilattice (a, b)
 
--- instance (JoinSemilattice a) => JoinSemilattice (b -> a)
+-- union set join semilattice
+newtype UnionSet a = UnionSet { unionSet :: Set a }
 
+deriving instance Eq a => Eq (UnionSet a)
+
+instance Ord a => Semigroup (UnionSet a) where
+    s1 <> s2 = UnionSet $ S.union (unionSet s1) (unionSet s2)
+
+instance Ord a => JoinSemilattice (UnionSet a)
+
+-- intersection set join semilattice
+newtype IntersectionSet a = IntersectionSet { intersectionSet :: Set a }
+
+deriving instance Eq a => Eq (IntersectionSet a)
+
+instance Ord a => Semigroup (IntersectionSet a) where
+    s1 <> s2 = IntersectionSet $ S.intersection (intersectionSet s1) (intersectionSet s2)
+
+instance Ord a => JoinSemilattice (IntersectionSet a)
+
+-- list join semilattice
+newtype SList a = SList { slist :: [a] } 
+
+deriving instance Show a => Show (SList a)
+deriving instance Eq a => Eq (SList a)
+
+instance Semigroup a => Semigroup (SList a) where
+    l1 <> l2 = SList $ foldl1 (<>) <$> transpose [slist l1, slist l2]
+
+instance JoinSemilattice a => JoinSemilattice (SList a) where
+
+instance (Ord k, JoinSemilattice v) => JoinSemilattice (AppendMap k v)
+
+instance (Ord a, Bounded a) => JoinSemilattice (Max a)
+
+instance (Ord a, Bounded a) => JoinSemilattice (Min a)
+
+instance JoinSemilattice All
+
+instance JoinSemilattice Any
+
+--
 instance JoinSemilattice (Proxy a)
 
 instance JoinSemilattice a => JoinSemilattice (Identity a)
@@ -128,24 +181,3 @@ instance Category Monotone where
 -- => if f s = s' <> s for given s' then f is monotinic
 -- let's call s' an event
 
-instance (Ord k, JoinSemilattice v) => JoinSemilattice (AppendMap k v)
-
-instance Ord a => JoinSemilattice (Set a)
-
-instance (Ord a, Bounded a) => JoinSemilattice (Max a)
-
-instance JoinSemilattice All
-
-instance JoinSemilattice Any
-
-
-newtype SList a = SList { slist :: [a] } 
-
-deriving instance Show a => Show (SList a)
-
-instance Semigroup a => Semigroup (SList a) where
-    l1 <> l2 = SList $ foldl1 (<>) <$> transpose [slist l1, slist l2]
-
-instance JoinSemilattice a => JoinSemilattice (SList a) where
-
-instance (Eq a) => Eq (SList a) where
