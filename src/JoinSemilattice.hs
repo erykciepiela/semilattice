@@ -8,6 +8,9 @@ import Data.List
 import Control.Arrow
 import Control.Concurrent.STM
 import Control.Category
+import Data.Proxy
+import Data.Functor.Identity
+import Data.Void
 
 class (Eq s, Semigroup s) => JoinSemilattice s where
     -- a <> b = b <> a - commutativity, saves us from out of order messages problem
@@ -39,10 +42,35 @@ isDescending [] = True
 isDescending [s] = True
 isDescending (s1:rest@(s2:_)) = s1 +> s2 && isDescending rest
 
+-- empty (no values) join semilattice
+instance JoinSemilattice Void
+
+-- elementary (single value) join semilattice
+instance JoinSemilattice ()
+
+-- (no value - a value - contradiction) join semilattice
+data Promise a = None | Promised a | Contradicted 
+
+deriving instance (Eq a) => Eq (Promise a)
+
+instance Eq a => Semigroup (Promise a) where
+    None <> p = p
+    p <> None = p
+    Contradicted <> _ = Contradicted
+    _ <> Contradicted = Contradicted
+    p@(Promised a1) <> (Promised a2)
+        | a1 == a2 = p
+        | otherwise = Contradicted
+
+instance Eq a => JoinSemilattice (Promise a)
+
+-- product join semilattice
 instance (JoinSemilattice a, JoinSemilattice b) => JoinSemilattice (a, b) where
 
-isMonotone :: (JoinSemilattice a, JoinSemilattice b) => (a -> b) -> a -> a -> Bool
-isMonotone f a1 a2 = f (a1 <> a2) +> f a1 && f (a1 <> a2) +> f a2
+
+instance JoinSemilattice (Proxy a)
+
+instance JoinSemilattice a => JoinSemilattice (Identity a)
 
 data Monotone a b where
     -- f (a1 <> a2) +> f a1
@@ -59,6 +87,9 @@ instance Category Monotone where
 propagate :: Monotone a b -> a -> b
 propagate IdMonotone = id
 propagate (Monotone f) = f
+
+foo :: JoinSemilattice a => Monotone a b -> a -> a -> (a, b)
+foo m prev a = let new = prev <> a in (new, propagate m new)
 
 -- f s +> s
 -- f s <> s = f s
