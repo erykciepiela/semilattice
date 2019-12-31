@@ -7,8 +7,9 @@ module JoinSemilattice (
     (<+>),
     UnionSet,
     IntersectionSet,
-    SList,
-    -- SMap,
+    List,
+    Map,
+    Counter,
     Promise,
 ) where
 
@@ -17,13 +18,11 @@ import Data.Set as S
 import Data.Semigroup
 import Data.Map.Append
 import Data.List
--- import Control.Arrow
--- import Control.Concurrent.STM
 import Control.Category
 import Data.Proxy
 import Data.Functor.Identity
 import Data.Void
-import Data.Map.Append
+import Data.IntMap.Strict
 
 class (Eq s, Semigroup s) => JoinSemilattice s where
     -- a <> b = b <> a - commutativity, saves us from out of order messages problem
@@ -114,17 +113,19 @@ instance Ord a => Semigroup (IntersectionSet a) where
 instance Ord a => JoinSemilattice (IntersectionSet a)
 
 -- list join semilattice
-newtype SList a = SList { slist :: [a] } 
+newtype List a = List { list :: [a] } 
 
-deriving instance Show a => Show (SList a)
-deriving instance Eq a => Eq (SList a)
+deriving instance Show a => Show (List a)
+deriving instance Eq a => Eq (List a)
 
-instance Semigroup a => Semigroup (SList a) where
-    l1 <> l2 = SList $ foldl1 (<>) <$> transpose [slist l1, slist l2]
+instance Semigroup a => Semigroup (List a) where
+    l1 <> l2 = List $ foldl1 (<>) <$> transpose [list l1, list l2]
 
-instance JoinSemilattice a => JoinSemilattice (SList a) where
+instance JoinSemilattice a => JoinSemilattice (List a) where
 
-instance (Ord k, JoinSemilattice v) => JoinSemilattice (AppendMap k v)
+type Map k v = AppendMap k v
+
+instance (Ord k, JoinSemilattice v) => JoinSemilattice (Map k v)
 
 instance (Ord a, Bounded a) => JoinSemilattice (Max a)
 
@@ -133,6 +134,16 @@ instance (Ord a, Bounded a) => JoinSemilattice (Min a)
 instance JoinSemilattice All
 
 instance JoinSemilattice Any
+
+-- | Grow-only counter.
+newtype Counter a = Counter (IntMap a)
+
+instance Ord a => Semigroup (Counter a) where
+    Counter x <> Counter y = Counter $ unionWith max x y
+
+deriving instance Eq a => Eq (Counter a)
+
+instance Ord a => JoinSemilattice (Counter a)
 
 --
 instance JoinSemilattice (Proxy a)
