@@ -53,6 +53,19 @@ data Promise a = None | Promised a | Contradicted
 
 deriving instance (Eq a) => Eq (Promise a)
 
+instance Functor Promise where
+    fmap _ None = None
+    fmap _ Contradicted = Contradicted
+    fmap f (Promised a) = Promised (f a)
+
+instance Applicative Promise where
+    pure = Promised
+    None <*> _ = None
+    _ <*> None = None
+    Contradicted <*> _ = Contradicted
+    _ <*> Contradicted = Contradicted
+    (Promised f) <*> (Promised a) = Promised (f a)
+
 instance Eq a => Semigroup (Promise a) where
     None <> p = p
     p <> None = p
@@ -67,6 +80,7 @@ instance Eq a => JoinSemilattice (Promise a)
 -- product join semilattice
 instance (JoinSemilattice a, JoinSemilattice b) => JoinSemilattice (a, b) where
 
+-- instance (JoinSemilattice a) => JoinSemilattice (b -> a)
 
 instance JoinSemilattice (Proxy a)
 
@@ -78,18 +92,25 @@ data Monotone a b where
     Monotone :: (JoinSemilattice a, JoinSemilattice b) => (a -> b) -> Monotone a b
     IdMonotone :: Monotone a a
 
-instance Category Monotone where
-    id = IdMonotone
-    m . IdMonotone = m
-    IdMonotone . m = m
-    (Monotone p2) . (Monotone p1) = Monotone (p2 . p1)
-
 propagate :: Monotone a b -> a -> b
 propagate IdMonotone = id
 propagate (Monotone f) = f
 
 foo :: JoinSemilattice a => Monotone a b -> a -> a -> (a, b)
 foo m prev a = let new = prev <> a in (new, propagate m new)
+
+data Foo = Foo (Promise Int) (Promise String)
+
+-- bar :: Monotone a (Monotone b c) -> Monotone (a, b) c
+-- bar = undefined
+
+
+instance Category Monotone where
+    id = IdMonotone
+    m . IdMonotone = m
+    IdMonotone . m = m
+    (Monotone p2) . (Monotone p1) = Monotone (p2 . p1)
+
 
 -- f s +> s
 -- f s <> s = f s
