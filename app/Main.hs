@@ -49,20 +49,20 @@ pickingContent p = dtContent <$> unAppendMap p
 
 type F = (S.Promise DTId, S.Promise DTId)
 
-dts1 :: Picking
-dts1 = toDt "123" $ toBag 0 $ toBatch "1" "apple" 3
+picking1 :: Picking
+picking1 = toDt "123" $ toBag 0 $ toBatch "1" "apple" 3
 
-dts2 :: Picking
-dts2 = toDt "123" $ toBag 1 $ toBatch "2" "banana" 4
+picking2 :: Picking
+picking2 = toDt "123" $ toBag 1 $ toBatch "2" "banana" 4
 
-dts3 :: Picking
-dts3 = toDt "123" $ toBag 0 $ toBatch "3" "coconut" 1
+picking3 :: Picking
+picking3 = toDt "123" $ toBag 0 $ toBatch "3" "coconut" 1
 
-dts4 :: Picking
-dts4 = toDt "123" $ toBag 0 $ toBatch "4" "coconut" 2
+picking4 :: Picking
+picking4 = toDt "123" $ toBag 0 $ toBatch "4" "coconut" 2
 
-dts5 :: Picking
-dts5 = toDt "123" $ toBag 2 $ toBatch "5" "donut" 5
+picking5 :: Picking
+picking5 = toDt "123" $ toBag 2 $ toBatch "5" "donut" 5
 
 main :: IO ()
 main = do
