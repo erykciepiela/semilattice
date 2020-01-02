@@ -15,7 +15,8 @@ module JoinSemilattice (
     Data.Semigroup.Max,
     Monotone(..),
     propagate,
-    SemiLat(..)
+    SemiLat(..),
+    Entity,
 ) where
 
 import Prelude hiding (id, (.))
@@ -195,6 +196,10 @@ instance Category SemiLat where
     (Homo p2) . (Homo p1) = Homo (p2 . p1)
     
 
+--
+class JoinSemilattice s => Entity i s o | s -> i o where
+    from :: i -> s
+    to :: s -> o
 
 -- f s +> s
 -- f s <> s = f s
