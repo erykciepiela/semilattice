@@ -1,52 +1,54 @@
 module Main where
 
-import JoinSemilattice
-import Data.Map as M
-import Data.Set as S
-import Data.Map.Append
-import Data.Semigroup
-import ORSet
+import JoinSemilattice as S
 
--- Can we have a semilattice container where
--- a) container location is changing
--- b) container content is changing
--- ContainerS stands for Container semilattice
-data ContainerS p = ContainerS {
-    containerPath :: S.Set Location,
-    containerPositionContent :: AppendMap (p, String) (Max Int),
-    containerLining :: Max Bool
-} deriving Show
+type PickId = String
+type SkuId = String
+type Qty = Int
+type Batch = (String, SkuId)
 
-instance Ord p => Semigroup (ContainerS p) where
-    (ContainerS p1 c1 l1) <> (ContainerS p2 c2 l2) = ContainerS (p1 <> p2) (c1 <> c2) (l1 <> l2)
+type Bag = (S.Map Batch (S.Max Qty))
 
-instance Ord p => JoinSemilattice (ContainerS p)
+type DT = (Bag, Bag, Bag)
 
-instance Eq p => Eq (ContainerS p)
+firstBag :: SemiLat DT Bag
+firstBag = Homo (\(b, _, _) -> b)
 
-data Location = LA | LB | LC deriving (Show, Eq, Ord)
+secondBag :: SemiLat DT Bag
+secondBag = Homo (\(_, b, _) -> b)
 
--- events/goals
-location :: Ord p => Location -> ContainerS p
-location l = ContainerS (S.singleton l) mempty mempty
+thirdBag :: SemiLat DT Bag
+thirdBag = Homo (\(_, _, b) -> b)
 
-content :: p -> String -> Int -> ContainerS p
-content p s i = ContainerS mempty (AppendMap (M.singleton (p, s) (Max i))) mempty
+type F = (DT, DT)
 
-lining :: Ord p => ContainerS p
-lining = ContainerS mempty mempty (Max True)
+
+
+pick1 :: DT
+pick1 = (S.map ("1", "apple") (S.max 3), mempty, mempty)
+
+pick2 :: DT
+pick2 = (mempty, S.map ("2", "banana") (S.max 4), mempty)
+
+pick3 :: DT
+pick3 = (S.map ("3", "coconut") (S.max 1), mempty, mempty)
+
+pick4 :: DT
+pick4 = (S.map ("3", "coconut") (S.max 2), mempty, mempty)
+
+pick5 :: DT
+pick5 = (mempty, mempty, S.map ("4", "donut") (S.max 5))
+
+dt1 :: DT
+dt1 = pick1 <> pick2 <> pick3 <> pick4 <> pick5
+
+type DTContent = (S.Map SkuId (S.Max Qty))
+
+foo :: SemiLat DT DTContent
+foo = Homo dtContent
+    where
+        dtContent (bag1, bag2, bag3) = undefined 
 
 main :: IO ()
 main = do
-    --  print $ grow [DoNothing, Add 1, Add 2, Add 3, DoNothing] (S.empty :: S.Set Int)
-    --  print $ ORSet.lookup 5 $ remove' 5 <> add' "tag" 5
-    --  print $ ORSet.lookup 5 $ add' "tag" 5 <> remove' 5
-    --  print $ ORSet.lookup 5 $ (remove 5 . add "tag" 5) initial
-    --  print $ ORSet.lookup 5 $ (add "tag" 5 . remove 5) initial
-    --  print $ ORSet.lookup 5 $ add "tag" 5 initial <> remove 5 initial -- should be False
-    --  print $ ORSet.lookup 5 $ remove 5 initial <> add "tag" 5 initial -- should be False
-     let f = remove 6
-     let g = remove 5
-     print$ initial <+ f initial
-     print $ f initial <+ f (g initial)
-     print $ ORSet.lookup 5 $ remove 5 initial <> add "1" 5 initial
+    print dt1

@@ -9,13 +9,19 @@ module JoinSemilattice (
     IntersectionSet,
     List,
     Map,
-    Counter,
+    JoinSemilattice.map,
+    JoinSemilattice.max,
     Promise,
+    Data.Semigroup.Max,
+    Monotone(..),
+    propagate,
+    SemiLat(..)
 ) where
 
 import Prelude hiding (id, (.))
 import Data.Set as S
 import Data.Semigroup
+import qualified Data.Map as M
 import Data.Map.Append
 import Data.List
 import Control.Category
@@ -91,6 +97,7 @@ instance Eq a => JoinSemilattice (Promise a)
 
 -- product join semilattice
 instance (JoinSemilattice a, JoinSemilattice b) => JoinSemilattice (a, b)
+instance (JoinSemilattice a, JoinSemilattice b, JoinSemilattice c) => JoinSemilattice (a, b, c)
 
 -- union set join semilattice
 newtype UnionSet a = UnionSet { unionSet :: Set a }
@@ -123,27 +130,29 @@ instance Semigroup a => Semigroup (List a) where
 
 instance JoinSemilattice a => JoinSemilattice (List a) where
 
+-- 
 type Map k v = AppendMap k v
 
 instance (Ord k, JoinSemilattice v) => JoinSemilattice (Map k v)
 
+map :: k -> v -> Map k v
+map k v = AppendMap (M.singleton k v)
+
+-- emptyMap :: Map k v
+-- emptyMap = 
+
+--
 instance (Ord a, Bounded a) => JoinSemilattice (Max a)
 
+max :: a -> Max a
+max = Max
+
+--
 instance (Ord a, Bounded a) => JoinSemilattice (Min a)
 
 instance JoinSemilattice All
 
 instance JoinSemilattice Any
-
--- | Grow-only counter.
-newtype Counter a = Counter (IntMap a)
-
-instance Ord a => Semigroup (Counter a) where
-    Counter x <> Counter y = Counter $ unionWith max x y
-
-deriving instance Eq a => Eq (Counter a)
-
-instance Ord a => JoinSemilattice (Counter a)
 
 --
 instance JoinSemilattice (Proxy a)
@@ -165,15 +174,26 @@ foo m prev a = let new = prev <> a in (new, propagate m new)
 
 data Foo = Foo (Promise Int) (Promise String)
 
--- bar :: Monotone a (Monotone b c) -> Monotone (a, b) c
--- bar = undefined
-
-
 instance Category Monotone where
     id = IdMonotone
     m . IdMonotone = m
     IdMonotone . m = m
     (Monotone p2) . (Monotone p1) = Monotone (p2 . p1)
+
+-- every SemiLat is Monotone
+data SemiLat a b where
+    -- f (x <> y) = f x <> f y +> f x
+    --                         +> f y
+    -- f(⊥)=⊥
+    Homo :: (JoinSemilattice a, JoinSemilattice b) => (a -> b) -> SemiLat a b
+    IdHomo :: SemiLat a a
+
+instance Category SemiLat where
+    id = IdHomo
+    m . IdHomo = m
+    IdHomo . m = m
+    (Homo p2) . (Homo p1) = Homo (p2 . p1)
+    
 
 
 -- f s +> s
