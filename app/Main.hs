@@ -1,53 +1,70 @@
 module Main where
 
-import JoinSemilattice as S
+import qualified JoinSemilattice as S
+import Data.Map
+import Data.Map.Append
+import Data.Semigroup
 
 type PickId = String
 type SkuId = String
 type Qty = Int
 type Batch = (String, SkuId)
 type DTId = String
+type LPN = String
 
-type Bag = (S.Map Batch (S.Max Qty))
+type Bag = S.Map Batch (S.Max Qty)
+
+bag :: PickId -> SkuId -> Qty -> Bag
+bag pickId skuId qty = S.map (pickId, skuId) (S.max qty)
+
+toBatch :: PickId -> SkuId -> Qty -> Bag
+toBatch = bag
+
+bagContent :: Bag -> Map SkuId Qty
+bagContent b = mapKeysWith (+) snd $ getMax <$> unAppendMap b
 
 type DT = (Bag, Bag, Bag)
 
-firstBag :: SemiLat DT Bag
-firstBag = Homo (\(b, _, _) -> b)
+dt :: Int -> Bag -> DT
+dt 0 b = (b, mempty, mempty)
+dt 1 b = (mempty, b, mempty)
+dt 2 b = (mempty, mempty, b)
 
-secondBag :: SemiLat DT Bag
-secondBag = Homo (\(_, b, _) -> b)
+toBag :: Int -> Bag -> DT
+toBag = dt
 
-thirdBag :: SemiLat DT Bag
-thirdBag = Homo (\(_, _, b) -> b)
+dtContent :: DT -> (Map SkuId Qty, Map SkuId Qty, Map SkuId Qty)
+dtContent (b1, b2, b3) = (bagContent b1, bagContent b2, bagContent b3)
+
+type Picking = S.Map LPN DT
+
+picking :: LPN -> DT -> Picking
+picking = S.map
+
+toDt :: LPN -> DT -> Picking
+toDt = picking
+
+pickingContent :: Picking -> Map LPN (Map SkuId Qty, Map SkuId Qty, Map SkuId Qty)
+pickingContent p = dtContent <$> unAppendMap p
 
 type F = (S.Promise DTId, S.Promise DTId)
 
-pick1 :: DT
-pick1 = (S.map ("1", "apple") (S.max 3), mempty, mempty)
+dts1 :: Picking
+dts1 = toDt "123" $ toBag 0 $ toBatch "1" "apple" 3
 
-pick2 :: DT
-pick2 = (mempty, S.map ("2", "banana") (S.max 4), mempty)
+dts2 :: Picking
+dts2 = toDt "123" $ toBag 1 $ toBatch "2" "banana" 4
 
-pick3 :: DT
-pick3 = (S.map ("3", "coconut") (S.max 1), mempty, mempty)
+dts3 :: Picking
+dts3 = toDt "123" $ toBag 0 $ toBatch "3" "coconut" 1
 
-pick4 :: DT
-pick4 = (S.map ("3", "coconut") (S.max 2), mempty, mempty)
+dts4 :: Picking
+dts4 = toDt "123" $ toBag 0 $ toBatch "4" "coconut" 2
 
-pick5 :: DT
-pick5 = (mempty, mempty, S.map ("4", "donut") (S.max 5))
-
-dt1 :: DT
-dt1 = pick1 <> pick2 <> pick3 <> pick4 <> pick5
-
-type DTContent = (S.Map SkuId (S.Max Qty))
-
-foo :: SemiLat DT DTContent
-foo = Homo dtContent
-    where
-        dtContent (bag1, bag2, bag3) = undefined 
+dts5 :: Picking
+dts5 = toDt "123" $ toBag 2 $ toBatch "5" "donut" 5
 
 main :: IO ()
 main = do
-    print dt1
+    -- print dt1
+    print $ pickingContent $ dts1 <> dts2 <> dts3 <> dts4 <> dts5 <> dts5
