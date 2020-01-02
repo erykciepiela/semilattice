@@ -201,6 +201,8 @@ class JoinSemilattice s => Entity i s o | s -> i o where
     from :: i -> s
     to :: s -> o
 
+
+
 -- f s +> s
 -- f s <> s = f s
 -- s2 +> s1 => f s2 +> f s1

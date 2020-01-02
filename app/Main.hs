@@ -66,5 +66,4 @@ picking5 = toDt "123" $ toBag 2 $ toBatch "5" "donut" 5
 
 main :: IO ()
 main = do
-    -- print dt1
     print $ pickingContent $ picking1 <> picking2 <> picking3 <> picking4 <> picking5 <> picking5
