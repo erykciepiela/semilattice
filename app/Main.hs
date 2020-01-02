@@ -6,6 +6,7 @@ type PickId = String
 type SkuId = String
 type Qty = Int
 type Batch = (String, SkuId)
+type DTId = String
 
 type Bag = (S.Map Batch (S.Max Qty))
 
@@ -20,9 +21,7 @@ secondBag = Homo (\(_, b, _) -> b)
 thirdBag :: SemiLat DT Bag
 thirdBag = Homo (\(_, _, b) -> b)
 
-type F = (DT, DT)
-
-
+type F = (S.Promise DTId, S.Promise DTId)
 
 pick1 :: DT
 pick1 = (S.map ("1", "apple") (S.max 3), mempty, mempty)
