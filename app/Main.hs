@@ -43,7 +43,7 @@ assigning :: DTLogicalId -> LPN -> State
 assigning dtid lpn = (S.map dtid (S.Promised lpn), mempty)
 
 pickingContent :: State -> Map DTLogicalId (S.Promise (Map SkuId Qty, Map SkuId Qty, Map SkuId Qty))
-pickingContent (assignments, p) = (\plpn -> (\lpn -> maybe (mempty, mempty, mempty) dtContent (M.lookup lpn (unAppendMap p))) <$> plpn) <$> (unAppendMap assignments) -- dtContent <$> unAppendMap p
+pickingContent (assignments, p) = (\plpn -> (\lpn -> maybe (mempty, mempty, mempty) dtContent (M.lookup lpn (unAppendMap p))) <$> plpn) <$> unAppendMap assignments -- dtContent <$> unAppendMap p
 
 data Pick = Pick LPN Int PickId SkuId Qty
 
