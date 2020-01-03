@@ -16,7 +16,7 @@ module JoinSemilattice (
     Monotone(..),
     propagate,
     SemiLat(..),
-    Entity,
+    Entity(..),
 ) where
 
 import Prelude hiding (id, (.))
@@ -200,8 +200,18 @@ instance Category SemiLat where
 class JoinSemilattice s => Entity i s o | s -> i o where
     from :: i -> s
     to :: s -> o
+    
+-- instance (Entity i1 s1 o2, Entity i2 s2 o2) => Entity (i1, i2) (s1, s2) (o1, o2) where
+--     from (i1, i2) = (from i1, from i2)
+--     to (s1, s2) = (to s1, to s2) 
 
+-- instance (Ord a, Bounded a) => Entity a (Max a) a where
+--     from = Max
+--     to = getMax
 
+-- instance (Ord k, Entity i v o) => Entity (k, i) (Map k v) (M.Map k o) where
+--     from (k, i) = AppendMap (M.singleton k (from i))
+--     to m = to <$> unAppendMap m
 
 -- f s +> s
 -- f s <> s = f s
