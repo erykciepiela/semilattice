@@ -42,8 +42,8 @@ picking lpn bagId batchId skuId qty = picking' lpn $ dt bagId $ bag batchId skuI
 assigning :: DTLogicalId -> LPN -> State
 assigning dtid lpn = (S.map dtid (S.Promised lpn), mempty)
 
-pickingContent :: State -> Map DTLogicalId (S.Promise (Map SkuId Qty, Map SkuId Qty, Map SkuId Qty))
-pickingContent (assignments, p) = (\plpn -> (\lpn -> maybe (mempty, mempty, mempty) dtContent (M.lookup lpn (unAppendMap p))) <$> plpn) <$> unAppendMap assignments -- dtContent <$> unAppendMap p
+stateContent :: State -> Map DTLogicalId (S.Promise (Map SkuId Qty, Map SkuId Qty, Map SkuId Qty))
+stateContent (assignments, p) = (\plpn -> (\lpn -> maybe (mempty, mempty, mempty) dtContent (M.lookup lpn (unAppendMap p))) <$> plpn) <$> unAppendMap assignments -- dtContent <$> unAppendMap p
 
 data Pick = Pick LPN Int PickId SkuId Qty
 
@@ -52,7 +52,7 @@ type F = (S.Promise DTId, S.Promise DTId)
 type DTLogicalId = String
 
 main :: IO ()
-main = print $ pickingContent $ mconcat [
+main = print $ stateContent $ mconcat [
     assigning "1" "123", 
     picking "123" 0 "1" "apple" 3, 
     picking "123" 1 "2" "banana" 4, 
