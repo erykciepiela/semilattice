@@ -32,8 +32,11 @@ dtContent (b1, b2, b3) = (bagContent b1, bagContent b2, bagContent b3)
 
 type State = (S.Map DTLogicalId (S.Promise LPN), S.Map LPN DT)
 
-picking' :: LPN -> DT -> State
-picking' lpn dt = (mempty, S.map lpn dt)
+picking :: LPN -> Int -> PickId -> SkuId -> Qty -> State
+picking lpn bagId batchId skuId qty = picking' lpn $ dt bagId $ bag batchId skuId qty
+    where
+        picking' :: LPN -> DT -> State
+        picking' lpn dt = (mempty, S.map lpn dt)
 
 assigning :: DTLogicalId -> LPN -> State
 assigning dtid lpn = (S.map dtid (S.Promised lpn), mempty)
@@ -42,9 +45,6 @@ pickingContent :: State -> Map LPN (Map SkuId Qty, Map SkuId Qty, Map SkuId Qty)
 pickingContent (_, p) = dtContent <$> unAppendMap p
 
 data Pick = Pick LPN Int PickId SkuId Qty
-
-picking :: LPN -> Int -> PickId -> SkuId -> Qty -> State
-picking lpn bagId batchId skuId qty = picking' lpn $ dt bagId $ bag batchId skuId qty
 
 type F = (S.Promise DTId, S.Promise DTId)
 
