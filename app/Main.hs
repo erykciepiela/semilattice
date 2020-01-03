@@ -1,7 +1,7 @@
 module Main where
 
 import qualified JoinSemilattice as S
-import Data.Map
+import Data.Map as M
 import Data.Map.Append
 import Data.Semigroup
 
@@ -41,8 +41,8 @@ picking lpn bagId batchId skuId qty = picking' lpn $ dt bagId $ bag batchId skuI
 assigning :: DTLogicalId -> LPN -> State
 assigning dtid lpn = (S.map dtid (S.Promised lpn), mempty)
 
-pickingContent :: State -> Map LPN (Map SkuId Qty, Map SkuId Qty, Map SkuId Qty)
-pickingContent (_, p) = dtContent <$> unAppendMap p
+pickingContent :: State -> Map DTLogicalId (S.Promise (Maybe (Map SkuId Qty, Map SkuId Qty, Map SkuId Qty)))
+pickingContent (assignments, p) = (\plpn -> (\lpn -> dtContent <$> M.lookup lpn (unAppendMap p)) <$> plpn) <$> (unAppendMap assignments) -- dtContent <$> unAppendMap p
 
 data Pick = Pick LPN Int PickId SkuId Qty
 

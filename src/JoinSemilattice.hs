@@ -71,6 +71,7 @@ instance JoinSemilattice ()
 data Promise a = None | Promised a | Contradicted 
 
 deriving instance (Eq a) => Eq (Promise a)
+deriving instance (Show a) => Show (Promise a)
 
 instance Functor Promise where
     fmap _ None = None
