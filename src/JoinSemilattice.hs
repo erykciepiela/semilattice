@@ -11,7 +11,7 @@ module JoinSemilattice (
     Map,
     JoinSemilattice.map,
     JoinSemilattice.max,
-    Promise,
+    Promise(..),
     Data.Semigroup.Max,
     Monotone(..),
     propagate,
