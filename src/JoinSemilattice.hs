@@ -83,6 +83,8 @@ instance Eq a => Semigroup (Value a) where
     v@(Value a1) <> (Value a2)
         | a1 == a2 = v
         | otherwise = Contradiction
+
+instance Eq a => JoinSemilattice (Value a)
     
 
 

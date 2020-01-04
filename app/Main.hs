@@ -53,17 +53,23 @@ type LogicalDTs = S.Map DTLogicalId (S.Value LogicalDT)
 
 -- propagator
 logicalDTs :: State -> LogicalDTs
-logicalDTs (assignments, p) = AppendMap $ (\plpn -> (\lpn -> maybe mempty logicalDT (M.lookup lpn (unAppendMap p))) <$> plpn) <$> unAppendMap assignments
+logicalDTs (assignments, p) = AppendMap $ fmap (\lpn -> maybe mempty logicalDT (M.lookup lpn (unAppendMap p))) <$> unAppendMap assignments
+
+goalLogicalDTs :: LogicalDTs
+goalLogicalDTs = AppendMap {unAppendMap = fromList [("1",S.Value (AppendMap {unAppendMap = fromList [("apple",Max {getMax = 3}),("coconut",Max {getMax = 3})]},AppendMap {unAppendMap = fromList [("banana",Max {getMax = 4})]},AppendMap {unAppendMap = fromList [("donut",Max {getMax = 5})]})),("2",S.Value (AppendMap {unAppendMap = fromList [("cucumber",Max {getMax = 7})]},AppendMap {unAppendMap = fromList []},AppendMap {unAppendMap = fromList []}))]}
+
+goalLogicalDTs'' :: LogicalDTs
+goalLogicalDTs'' = AppendMap {unAppendMap = fromList [("1",S.Value (AppendMap {unAppendMap = fromList [("apple",Max {getMax = 3}),("coconut",Max {getMax = 3})]},AppendMap {unAppendMap = fromList [("banana",Max {getMax = 4})]},AppendMap {unAppendMap = fromList [("donut",Max {getMax = 5})]})),("2",S.Value (AppendMap {unAppendMap = fromList [("cucumber",Max {getMax = 7})]},AppendMap {unAppendMap = fromList [("carrot", Max {getMax = 3})]},AppendMap {unAppendMap = fromList []}))]}
+
+goalLogicalDTs' :: LogicalDTs
+goalLogicalDTs' = AppendMap {unAppendMap = fromList [("1",S.Value (AppendMap {unAppendMap = fromList [("apple",Max {getMax = 3}),("coconut",Max {getMax = 3})]},AppendMap {unAppendMap = fromList [("banana",Max {getMax = 4})]},AppendMap {unAppendMap = fromList [("donut",Max {getMax = 5})]}))]}
 
 main :: IO ()
-main = print $ logicalDTs $ mconcat [
-    assigning "1" "123", 
-    picking "123" 0 "1" "apple" 3, 
-    picking "123" 1 "2" "banana" 4, 
-    picking "123" 0 "3" "coconut" 1, 
-    picking "123" 0 "4" "coconut" 2, 
-    picking "123" 2 "5" "donut" 5, 
-    picking "123" 2 "5" "donut" 5,
-    assigning "2" "444",
-    picking "444" 0 "6" "cucumber" 7
-    ]
+main = do
+    let ldts = logicalDTs $ mconcat [ assigning "1" "123", picking "123" 0 "1" "apple" 3, picking "123" 1 "2" "banana" 4, picking "123" 0 "3" "coconut" 1, picking "123" 0 "4" "coconut" 2, picking "123" 2 "5" "donut" 5, picking "123" 2 "5" "donut" 5, assigning "2" "444", picking "444" 0 "6" "cucumber" 7]
+    print (goalLogicalDTs S.+> ldts) -- T
+    print (goalLogicalDTs S.<+ ldts) -- T
+    print (goalLogicalDTs' S.+> ldts) -- F
+    print (goalLogicalDTs' S.<+ ldts) -- T
+    print (goalLogicalDTs'' S.+> ldts) -- T
+    print (goalLogicalDTs'' S.<+ ldts) -- F
