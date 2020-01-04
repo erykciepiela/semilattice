@@ -27,12 +27,11 @@ type PhysicalDT = (PhysicalBag, PhysicalBag, PhysicalBag)
 -- join semilattice
 type PhysicalState = (S.Map LogicalDTId (S.Value LPN), S.Map LPN PhysicalDT)
 
-dtPick :: LPN -> Int -> PickId -> SkuId -> Qty -> PhysicalState
-dtPick lpn bagId batchId skuId qty = (mempty, S.map lpn (physicalBagToDT bagId $ physicalBag batchId skuId qty))
-
 dtAssignment :: LogicalDTId -> LPN -> PhysicalState
 dtAssignment dtid lpn = (S.map dtid (S.Value lpn), mempty)
 
+dtPick :: LPN -> BagId -> PickId -> SkuId -> Qty -> PhysicalState
+dtPick lpn bagId pickId skuId = physicalDTtoState lpn . physicalBagToDT bagId . physicalBag pickId skuId
 
 -- join semilattice
 type LogicalBag = S.Map SkuId (S.Max Qty)
@@ -68,6 +67,13 @@ logicalBagToDT 2 b = (mempty, mempty, b)
 
 physicalToLogicalState :: PhysicalState -> LogicalState
 physicalToLogicalState (assignments, p) = AppendMap $ (\lpn -> maybe mempty physicalTologicalDT (M.lookup lpn (unAppendMap p))) <$> M.mapMaybe S.getValue (unAppendMap assignments)
+
+physicalDTtoState :: LPN -> PhysicalDT -> PhysicalState
+physicalDTtoState lpn dt = (mempty, S.map lpn dt)
+
+physicalBagToState :: LPN -> Int -> PhysicalBag -> PhysicalState
+physicalBagToState lpn bagId = physicalDTtoState lpn . physicalBagToDT bagId
+
 
 --
 main :: IO ()
