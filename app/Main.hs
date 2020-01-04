@@ -3,9 +3,6 @@ module Main where
 import JoinSemilattice
 import Data.Map as M
 import Data.Map.Append
-import Data.Semigroup
-import Data.Maybe
-import Data.Set as Set
 
 type PickId = String
 type SkuId = String
