@@ -87,7 +87,3 @@ main = do
             logicalPick dtId bagId skuId = logicalDTtoState dtId . logicalBagToDT bagId . logicalBag skuId
             dtAssignment' :: LogicalDTId -> LPN -> PhysicalState
             dtAssignment' dtid lpn = dtAssignmentToPhysicalState $ dtAssignment dtid lpn
-
-
-
-
