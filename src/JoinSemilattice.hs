@@ -177,7 +177,6 @@ instance JoinSemilattice a => JoinSemilattice (Identity a)
 --
 instance (Ord k, JoinSemilattice v) => JoinSemilattice (AppendMap k v)
 
-
 --
 newtype List a = List { list :: [a] } 
 
@@ -192,7 +191,7 @@ instance Monoid a => Monoid (List a) where
 
 instance JoinSemilattice a => JoinSemilattice (List a) where
 
--- product join semilattice
+-- 
 instance (JoinSemilattice a, JoinSemilattice b) => JoinSemilattice (a, b)
 instance (JoinSemilattice a, JoinSemilattice b, JoinSemilattice c) => JoinSemilattice (a, b, c)
 instance (JoinSemilattice a, JoinSemilattice b, JoinSemilattice c, JoinSemilattice d) => JoinSemilattice (a, b, c, d)
