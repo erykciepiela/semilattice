@@ -43,10 +43,7 @@ logicalDT (b1, b2, b3) = (logicalBag b1, logicalBag b2, logicalBag b3)
 type State = (S.Map DTLogicalId (S.Value LPN), S.Map LPN DT)
 
 picking :: LPN -> Int -> PickId -> SkuId -> Qty -> State
-picking lpn bagId batchId skuId qty = picking' lpn $ dt bagId $ bag batchId skuId qty
-    where
-        picking' :: LPN -> DT -> State
-        picking' lpn dt = (mempty, S.map lpn dt)
+picking lpn bagId batchId skuId qty = (mempty, S.map lpn (dt bagId $ bag batchId skuId qty))
 
 assigning :: DTLogicalId -> LPN -> State
 assigning dtid lpn = (S.map dtid (S.Value lpn), mempty)
