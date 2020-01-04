@@ -31,7 +31,7 @@ dt 2 b = (mempty, mempty, b)
 dtContent :: DT -> (Map SkuId Qty, Map SkuId Qty, Map SkuId Qty)
 dtContent (b1, b2, b3) = (bagContent b1, bagContent b2, bagContent b3)
 
-type State = (S.Map DTLogicalId (S.Promise LPN), S.Map LPN DT)
+type State = (S.Map DTLogicalId (S.Value LPN), S.Map LPN DT)
 
 picking :: LPN -> Int -> PickId -> SkuId -> Qty -> State
 picking lpn bagId batchId skuId qty = picking' lpn $ dt bagId $ bag batchId skuId qty
@@ -40,9 +40,9 @@ picking lpn bagId batchId skuId qty = picking' lpn $ dt bagId $ bag batchId skuI
         picking' lpn dt = (mempty, S.map lpn dt)
 
 assigning :: DTLogicalId -> LPN -> State
-assigning dtid lpn = (S.map dtid (S.Promised lpn), mempty)
+assigning dtid lpn = (S.map dtid (S.Value lpn), mempty)
 
-stateContent :: State -> Map DTLogicalId (S.Promise (Map SkuId Qty, Map SkuId Qty, Map SkuId Qty))
+stateContent :: State -> Map DTLogicalId (S.Value (Map SkuId Qty, Map SkuId Qty, Map SkuId Qty))
 stateContent (assignments, p) = (\plpn -> (\lpn -> maybe (mempty, mempty, mempty) dtContent (M.lookup lpn (unAppendMap p))) <$> plpn) <$> unAppendMap assignments -- dtContent <$> unAppendMap p
 
 data Pick = Pick LPN Int PickId SkuId Qty

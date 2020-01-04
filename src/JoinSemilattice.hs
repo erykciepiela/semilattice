@@ -12,6 +12,7 @@ module JoinSemilattice (
     JoinSemilattice.map,
     JoinSemilattice.max,
     Promise(..),
+    Value(..),
     Data.Semigroup.Max,
     Monotone(..),
     propagate,
@@ -61,11 +62,29 @@ isDescending [] = True
 isDescending [s] = True
 isDescending (s1:rest@(s2:_)) = s1 +> s2 && isDescending rest
 
--- empty (no values) join semilattice
+-- empty (no possible values) join semilattice
 instance JoinSemilattice Void
 
--- elementary (single value) join semilattice
+-- elementary (single possible value) join semilattice
 instance JoinSemilattice ()
+
+-- many possible values
+data Value a = Value a | Contradiction
+deriving instance (Eq a) => Eq (Value a)
+deriving instance (Show a) => Show (Value a)
+
+instance Functor Value where
+    fmap _ Contradiction = Contradiction
+    fmap f (Value a) = Value (f a)
+
+instance Eq a => Semigroup (Value a) where
+    Contradiction <> _ = Contradiction
+    _ <> Contradiction = Contradiction
+    v@(Value a1) <> (Value a2)
+        | a1 == a2 = v
+        | otherwise = Contradiction
+    
+
 
 -- (no value - a value - contradiction) join semilattice
 data Promise a = None | Promised a | Contradicted 
