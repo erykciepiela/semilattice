@@ -22,16 +22,7 @@ physicalBag :: PickId -> SkuId -> Qty -> PhysicalBag
 physicalBag pickId skuId qty = S.map (pickId, skuId) (S.max qty)
 
 -- join semilattice
-type LogicalBag = S.Map SkuId (S.Max Qty)
-
-logicalBag :: SkuId -> Qty -> LogicalBag
-logicalBag skuId qty = AppendMap $ M.singleton skuId (Max qty)
-
--- join semilattice
 type PhysicalDT = (PhysicalBag, PhysicalBag, PhysicalBag)
-
--- join semilattice
-type LogicalDT = (LogicalBag, LogicalBag, LogicalBag)
 
 -- join semilattice
 type PhysicalState = (S.Map LogicalDTId (S.Value LPN), S.Map LPN PhysicalDT)
@@ -41,6 +32,16 @@ dtPick lpn bagId batchId skuId qty = (mempty, S.map lpn (physicalBagToDT bagId $
 
 dtAssignment :: LogicalDTId -> LPN -> PhysicalState
 dtAssignment dtid lpn = (S.map dtid (S.Value lpn), mempty)
+
+
+-- join semilattice
+type LogicalBag = S.Map SkuId (S.Max Qty)
+
+logicalBag :: SkuId -> Qty -> LogicalBag
+logicalBag skuId qty = AppendMap $ M.singleton skuId (Max qty)
+
+-- join semilattice
+type LogicalDT = (LogicalBag, LogicalBag, LogicalBag)
 
 -- join semilattice
 type LogicalState = S.Map LogicalDTId LogicalDT
