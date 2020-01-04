@@ -22,7 +22,7 @@ type PhysicalDT = (PhysicalBag, PhysicalBag, PhysicalBag)
 
 type PhysicalDTs = S.Map LPN PhysicalDT
 
-type DTAssignment = S.Map LogicalDTId (S.Value LPN)
+type DTAssignment = S.Map LogicalDTId (S.Same LPN)
 
 type PhysicalState = (DTAssignment, PhysicalDTs)
 
@@ -37,7 +37,7 @@ physicalBag :: PickId -> SkuId -> Qty -> PhysicalBag
 physicalBag pickId skuId qty = AppendMap $ M.singleton  (pickId, skuId) (S.Increasing qty)
 
 dtAssignment :: LogicalDTId -> LPN -> DTAssignment
-dtAssignment dtid lpn = AppendMap $ M.singleton dtid (S.Value lpn)
+dtAssignment dtid lpn = AppendMap $ M.singleton dtid (S.Unambiguous lpn)
 
 logicalBag :: SkuId -> Qty -> LogicalBag
 logicalBag skuId qty = AppendMap $ M.singleton skuId (S.Increasing qty)
@@ -59,7 +59,10 @@ logicalBagToDT 1 b = (mempty, b, mempty)
 logicalBagToDT 2 b = (mempty, mempty, b)
 
 physicalToLogicalState :: PhysicalState -> LogicalState
-physicalToLogicalState (assignments, p) = AppendMap $ (\lpn -> maybe mempty physicalTologicalDT (M.lookup lpn (unAppendMap p))) <$> M.mapMaybe S.getValue (unAppendMap assignments)
+physicalToLogicalState (assignments, p) = AppendMap $ (\slpn -> case slpn of
+    S.Unknown -> mempty
+    S.Ambiguous _ -> mempty 
+    (S.Unambiguous lpn) -> maybe mempty physicalTologicalDT (M.lookup lpn (unAppendMap p))) <$> (unAppendMap assignments)
 
 physicalDTtoState :: LPN -> PhysicalDT -> PhysicalState
 physicalDTtoState lpn dt = (mempty, AppendMap $ M.singleton lpn dt)

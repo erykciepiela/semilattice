@@ -9,19 +9,14 @@ module JoinSemilattice (
     propagateIncrease,
     Decreasing(..),
     propagateDecrease,
+    Same(..),
+    propagateSame,
     Growing(..),
     propagateGrowth,
     Shrinking(..),
     propagateShrink,
     List,
     Map,
-    Promise(..),
-    Value(..),
-    getValue,
-    Data.Semigroup.Max,
-    Monotone(..),
-    propagate,
-    SemiLat(..),
 ) where
 
 import Prelude hiding (id, (.))
@@ -142,29 +137,32 @@ instance Ord a => JoinSemilattice (Shrinking a)
 propagateShrink :: (Ord a, Ord b) => (a -> b) -> Shrinking a -> Shrinking b
 propagateShrink f = Shrinking . S.map f . shrinking
 
---
-data Value a = Value a | Contradiction
-deriving instance (Eq a) => Eq (Value a)
-deriving instance (Show a) => Show (Value a)
+-- | If @a@ is Ord and we know we it should stay the same over time.
+-- newtype Same a = Same { same :: Either [a] a }
+data Same a = Unknown | Unambiguous a | Ambiguous (Set a)
 
-instance Functor Value where
-    fmap _ Contradiction = Contradiction
-    fmap f (Value a) = Value (f a)
+deriving instance Eq a => Eq (Same a)
+deriving instance Show a => Show (Same a)
 
-instance Eq a => Semigroup (Value a) where
-    Contradiction <> _ = Contradiction
-    _ <> Contradiction = Contradiction
-    v@(Value a1) <> (Value a2)
-        | a1 == a2 = v
-        | otherwise = Contradiction
+instance Ord a => Semigroup (Same a) where
+    Unknown <> p = p
+    p <> Unknown = p
+    Ambiguous as <> Unambiguous a = Ambiguous (S.insert a as) 
+    Unambiguous a <> Ambiguous as = Ambiguous (S.insert a as) 
+    Ambiguous as1 <> Ambiguous as2 = Ambiguous (S.union as1 as2)
+    p@(Unambiguous a1) <> (Unambiguous a2)
+        | a1 == a2 = p
+        | otherwise = Ambiguous (S.fromList [a1, a2])
 
-instance Eq a => JoinSemilattice (Value a)
+instance Ord a => Monoid (Same a) where
+    mempty = Unknown
 
-getValue :: Value a -> Maybe a
-getValue (Value a) = Just a
-getValue Contradiction = Nothing
+instance Ord a => JoinSemilattice (Same a)
 
-
+propagateSame :: (Ord a, Ord b) => (a -> b) -> Same a -> Same b
+propagateSame f Unknown = Unknown
+propagateSame f (Unambiguous a) = Unambiguous (f a)
+propagateSame f (Ambiguous as) = Ambiguous (S.map f as)
 
 -- higher order join semilattices
 newtype List a = List { list :: [a] } 
@@ -181,35 +179,6 @@ instance JoinSemilattice a => JoinSemilattice (List a) where
     
 
 
--- (no value - a value - contradiction) join semilattice
-data Promise a = None | Promised a | Contradicted 
-
-deriving instance (Eq a) => Eq (Promise a)
-deriving instance (Show a) => Show (Promise a)
-
-instance Functor Promise where
-    fmap _ None = None
-    fmap _ Contradicted = Contradicted
-    fmap f (Promised a) = Promised (f a)
-
-instance Applicative Promise where
-    pure = Promised
-    None <*> _ = None
-    _ <*> None = None
-    Contradicted <*> _ = Contradicted
-    _ <*> Contradicted = Contradicted
-    (Promised f) <*> (Promised a) = Promised (f a)
-
-instance Eq a => Semigroup (Promise a) where
-    None <> p = p
-    p <> None = p
-    Contradicted <> _ = Contradicted
-    _ <> Contradicted = Contradicted
-    p@(Promised a1) <> (Promised a2)
-        | a1 == a2 = p
-        | otherwise = Contradicted
-
-instance Eq a => JoinSemilattice (Promise a)
 
 -- product join semilattice
 instance (JoinSemilattice a, JoinSemilattice b) => JoinSemilattice (a, b)
@@ -236,8 +205,6 @@ propagate (Monotone f) = f
 
 foo :: JoinSemilattice a => Monotone a b -> a -> a -> (a, b)
 foo m prev a = let new = prev <> a in (new, propagate m new)
-
-data Foo = Foo (Promise Int) (Promise String)
 
 instance Category Monotone where
     id = IdMonotone
