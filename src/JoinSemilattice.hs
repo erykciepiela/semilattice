@@ -5,6 +5,7 @@ module JoinSemilattice (
     (<<+),
     (+>>),
     (<+>),
+    -- | Primitive join semilattices 
     Increasing(..),
     propagateIncrease,
     Decreasing(..),
@@ -15,6 +16,7 @@ module JoinSemilattice (
     propagateGrowth,
     Shrinking(..),
     propagateShrink,
+    -- | Higher-order join semilattices
     List,
     Map,
 ) where
@@ -31,7 +33,7 @@ import Data.Functor.Identity
 import Data.Void
 import Data.IntMap.Strict
 
-class (Eq s, Semigroup s) => JoinSemilattice s where
+class (Eq s, Monoid s) => JoinSemilattice s where
     -- a <> b = b <> a - commutativity, saves us from out of order messages problem
     -- a <> a = a - idempotence, saves us from exactly-once delivery guarantee problem
 
@@ -62,13 +64,11 @@ isDescending [s] = True
 isDescending (s1:rest@(s2:_)) = s1 +> s2 && isDescending rest
 
 -- 
-instance JoinSemilattice Void
-
 instance JoinSemilattice ()
 
-instance Ord a => JoinSemilattice (Max a)
+instance (Ord a, Bounded a) => JoinSemilattice (Max a)
 
-instance Ord a => JoinSemilattice (Min a)
+instance (Ord a, Bounded a) => JoinSemilattice (Min a)
 
 instance JoinSemilattice All
 
@@ -76,7 +76,7 @@ instance JoinSemilattice Any
 
 instance JoinSemilattice (Proxy a)
 
--- | If @a@ is Ord and we know it increases in time.
+-- | If @a@ is Ord and Bounded and we know it increases in time.
 -- | Equivalent to Max.
 newtype Increasing a = Increasing { increasing :: a }
 
@@ -88,12 +88,12 @@ instance (Ord a, Bounded a) => Monoid (Increasing a) where
 
 deriving instance Eq a => Eq (Increasing a)
 
-instance Ord a => JoinSemilattice (Increasing a)
+instance (Ord a, Bounded a) => JoinSemilattice (Increasing a)
 
 propagateIncrease :: (a -> b) -> Increasing a -> Increasing b
 propagateIncrease f (Increasing a) = Increasing (f a) -- f must be monotone
 
--- | If @a@ is Ord and we know it decreases in time.
+-- | If @a@ is Ord and Bounded and we know it decreases in time.
 -- | Equivalent to Min.
 newtype Decreasing a = Decreasing { decreasing :: a }
 
@@ -105,7 +105,7 @@ instance (Ord a, Bounded a) => Monoid (Decreasing a) where
 
 deriving instance Eq a => Eq (Decreasing a)
 
-instance Ord a => JoinSemilattice (Decreasing a)
+instance (Ord a, Bounded a) => JoinSemilattice (Decreasing a)
 
 propagateDecrease :: (a -> b) -> Decreasing a -> Decreasing b
 propagateDecrease f (Decreasing a) = Decreasing (f a) -- f must be counter-monotone
@@ -118,6 +118,9 @@ deriving instance Show a => Show (Growing a)
 
 instance Ord a => Semigroup (Growing a) where
     s1 <> s2 = Growing $ S.union (growing s1) (growing s2)
+
+instance Ord a => Monoid (Growing a) where
+    mempty = Growing $ mempty
 
 instance Ord a => JoinSemilattice (Growing a)
 
@@ -132,7 +135,10 @@ deriving instance Eq a => Eq (Shrinking a)
 instance Ord a => Semigroup (Shrinking a) where
     s1 <> s2 = Shrinking $ S.intersection (shrinking s1) (shrinking s2)
 
-instance Ord a => JoinSemilattice (Shrinking a)
+instance (Ord a, Enum a, Bounded a) => Monoid (Shrinking a) where
+    mempty = Shrinking $ S.fromList $ enumFromTo minBound maxBound
+
+instance (Ord a, Enum a, Bounded a) => JoinSemilattice (Shrinking a)
 
 propagateShrink :: (Ord a, Ord b) => (a -> b) -> Shrinking a -> Shrinking b
 propagateShrink f = Shrinking . S.map f . shrinking
@@ -173,12 +179,10 @@ deriving instance Eq a => Eq (List a)
 instance Semigroup a => Semigroup (List a) where
     l1 <> l2 = List $ foldl1 (<>) <$> transpose [list l1, list l2]
 
+instance Monoid a => Monoid (List a) where
+    mempty = List $ repeat mempty
+
 instance JoinSemilattice a => JoinSemilattice (List a) where
-
-
-    
-
-
 
 -- product join semilattice
 instance (JoinSemilattice a, JoinSemilattice b) => JoinSemilattice (a, b)
