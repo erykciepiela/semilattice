@@ -15,34 +15,33 @@ type LPN = String
 type LogicalDTId = String
 type BagId = Int
 
--- join semilattice
+-- join semilattices
 type PhysicalBag = S.Map Batch (S.Max Qty)
 
+type PhysicalDT = (PhysicalBag, PhysicalBag, PhysicalBag)
+
+type PhysicalDTs = S.Map LPN PhysicalDT
+
+type DTAssignment = S.Map LogicalDTId (S.Value LPN)
+
+type PhysicalState = (DTAssignment, PhysicalDTs)
+
+type LogicalBag = S.Map SkuId (S.Max Qty)
+
+type LogicalDT = (LogicalBag, LogicalBag, LogicalBag)
+
+type LogicalState = S.Map LogicalDTId LogicalDT
+
+-- propagators
 physicalBag :: PickId -> SkuId -> Qty -> PhysicalBag
 physicalBag pickId skuId qty = S.map (pickId, skuId) (S.max qty)
 
--- join semilattice
-type PhysicalDT = (PhysicalBag, PhysicalBag, PhysicalBag)
-
--- join semilattice
-type PhysicalState = (S.Map LogicalDTId (S.Value LPN), S.Map LPN PhysicalDT)
-
-dtAssignment :: LogicalDTId -> LPN -> PhysicalState
-dtAssignment dtid lpn = (S.map dtid (S.Value lpn), mempty)
-
--- join semilattice
-type LogicalBag = S.Map SkuId (S.Max Qty)
+dtAssignment :: LogicalDTId -> LPN -> DTAssignment
+dtAssignment dtid lpn = S.map dtid (S.Value lpn)
 
 logicalBag :: SkuId -> Qty -> LogicalBag
 logicalBag skuId qty = AppendMap $ M.singleton skuId (Max qty)
 
--- join semilattice
-type LogicalDT = (LogicalBag, LogicalBag, LogicalBag)
-
--- join semilattice
-type LogicalState = S.Map LogicalDTId LogicalDT
-
--- propagators
 physicalToLogicalBag :: PhysicalBag -> LogicalBag
 physicalToLogicalBag b = AppendMap $ mapKeysWith (\max1 max2 -> Max $ getMax max1 + getMax max2) snd $ unAppendMap b
 
@@ -71,11 +70,13 @@ physicalBagToState lpn bagId = physicalDTtoState lpn . physicalBagToDT bagId
 logicalDTtoState :: LogicalDTId -> LogicalDT -> LogicalState
 logicalDTtoState dtId dt = AppendMap $ M.singleton dtId dt
 
+dtAssignmentToPhysicalState :: DTAssignment -> PhysicalState
+dtAssignmentToPhysicalState a = (a, mempty)
 
 --
 main :: IO ()
 main = do
-    let actualPhysical = mconcat [ dtAssignment "1" "123", physicalPick "123" 0 "1" "apple" 3, physicalPick "123" 1 "2" "banana" 4, physicalPick "123" 0 "3" "coconut" 1, physicalPick "123" 0 "4" "coconut" 2, physicalPick "123" 2 "5" "donut" 5, physicalPick "123" 2 "5" "donut" 5, dtAssignment "2" "444", physicalPick "444" 0 "6" "cucumber" 7]
+    let actualPhysical = mconcat [ dtAssignment' "1" "123", physicalPick "123" 0 "1" "apple" 3, physicalPick "123" 1 "2" "banana" 4, physicalPick "123" 0 "3" "coconut" 1, physicalPick "123" 0 "4" "coconut" 2, physicalPick "123" 2 "5" "donut" 5, physicalPick "123" 2 "5" "donut" 5, dtAssignment' "2" "444", physicalPick "444" 0 "6" "cucumber" 7]
     let actualLogical = physicalToLogicalState actualPhysical
     let expectedLogic = mconcat [logicalPick "1" 0 "apple" 3, logicalPick "1" 1 "banana" 4]
     print $ actualLogical S.+> expectedLogic -- True
@@ -85,6 +86,9 @@ main = do
             physicalPick lpn bagId pickId skuId = physicalDTtoState lpn . physicalBagToDT bagId . physicalBag pickId skuId
             logicalPick :: LogicalDTId -> BagId -> SkuId -> Qty -> LogicalState
             logicalPick dtId bagId skuId = logicalDTtoState dtId . logicalBagToDT bagId . logicalBag skuId
+            dtAssignment' :: LogicalDTId -> LPN -> PhysicalState
+            dtAssignment' dtid lpn = dtAssignmentToPhysicalState $ dtAssignment dtid lpn
+
 
 
 
