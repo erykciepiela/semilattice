@@ -28,7 +28,7 @@ type LogicalDT = (LogicalBag, LogicalBag, LogicalBag)
 
 type LogicalState = AppendMap LogicalDTId LogicalDT
 
--- propagators
+-- homomorphisms
 physicalBag :: PickId -> SkuId -> Qty -> PhysicalBag
 physicalBag pickId skuId qty = base ((pickId, skuId), Increasing qty)
 
@@ -61,7 +61,7 @@ physicalToLogicalState (assignments, p) = AppendMap $ (\slpn -> case slpn of
     (Unambiguous lpn) -> maybe mempty physicalTologicalDT (M.lookup lpn (unAppendMap p))) <$> unAppendMap assignments
 
 physicalDTtoState :: LPN -> PhysicalDT -> PhysicalState
-physicalDTtoState lpn dt = (mempty, AppendMap $ M.singleton lpn dt)
+physicalDTtoState lpn dt = (mempty, base (lpn, dt))
 
 physicalBagToState :: LPN -> Int -> PhysicalBag -> PhysicalState
 physicalBagToState lpn bagId = physicalDTtoState lpn . physicalBagToDT bagId
