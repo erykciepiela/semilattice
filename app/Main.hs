@@ -30,9 +30,6 @@ type PhysicalState = (S.Map LogicalDTId (S.Value LPN), S.Map LPN PhysicalDT)
 dtAssignment :: LogicalDTId -> LPN -> PhysicalState
 dtAssignment dtid lpn = (S.map dtid (S.Value lpn), mempty)
 
-dtPick :: LPN -> BagId -> PickId -> SkuId -> Qty -> PhysicalState
-dtPick lpn bagId pickId skuId = physicalDTtoState lpn . physicalBagToDT bagId . physicalBag pickId skuId
-
 -- join semilattice
 type LogicalBag = S.Map SkuId (S.Max Qty)
 
@@ -44,9 +41,6 @@ type LogicalDT = (LogicalBag, LogicalBag, LogicalBag)
 
 -- join semilattice
 type LogicalState = S.Map LogicalDTId LogicalDT
-
-logicalPick :: LogicalDTId -> BagId -> SkuId -> Qty -> LogicalState
-logicalPick dtId bagId skuId qty = AppendMap $ M.singleton dtId $ logicalBagToDT bagId $ logicalBag skuId qty
 
 -- propagators
 physicalToLogicalBag :: PhysicalBag -> LogicalBag
@@ -74,12 +68,23 @@ physicalDTtoState lpn dt = (mempty, S.map lpn dt)
 physicalBagToState :: LPN -> Int -> PhysicalBag -> PhysicalState
 physicalBagToState lpn bagId = physicalDTtoState lpn . physicalBagToDT bagId
 
+logicalDTtoState :: LogicalDTId -> LogicalDT -> LogicalState
+logicalDTtoState dtId dt = AppendMap $ M.singleton dtId dt
+
 
 --
 main :: IO ()
 main = do
-    let actualPhysical = mconcat [ dtAssignment "1" "123", dtPick "123" 0 "1" "apple" 3, dtPick "123" 1 "2" "banana" 4, dtPick "123" 0 "3" "coconut" 1, dtPick "123" 0 "4" "coconut" 2, dtPick "123" 2 "5" "donut" 5, dtPick "123" 2 "5" "donut" 5, dtAssignment "2" "444", dtPick "444" 0 "6" "cucumber" 7]
+    let actualPhysical = mconcat [ dtAssignment "1" "123", physicalPick "123" 0 "1" "apple" 3, physicalPick "123" 1 "2" "banana" 4, physicalPick "123" 0 "3" "coconut" 1, physicalPick "123" 0 "4" "coconut" 2, physicalPick "123" 2 "5" "donut" 5, physicalPick "123" 2 "5" "donut" 5, dtAssignment "2" "444", physicalPick "444" 0 "6" "cucumber" 7]
     let actualLogical = physicalToLogicalState actualPhysical
     let expectedLogic = mconcat [logicalPick "1" 0 "apple" 3, logicalPick "1" 1 "banana" 4]
     print $ actualLogical S.+> expectedLogic -- True
     print $ actualLogical S.<+ expectedLogic -- False 
+        where
+            physicalPick :: LPN -> BagId -> PickId -> SkuId -> Qty -> PhysicalState
+            physicalPick lpn bagId pickId skuId = physicalDTtoState lpn . physicalBagToDT bagId . physicalBag pickId skuId
+            logicalPick :: LogicalDTId -> BagId -> SkuId -> Qty -> LogicalState
+            logicalPick dtId bagId skuId = logicalDTtoState dtId . logicalBagToDT bagId . logicalBag skuId
+
+
+
