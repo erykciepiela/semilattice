@@ -56,7 +56,7 @@ type LogicalDTs = S.Map DTLogicalId (S.Value LogicalDT)
 
 -- propagator
 logicalDTs :: State -> LogicalDTs
-logicalDTs (assignments, p) = AppendMap $ (\plpn -> (\lpn -> maybe (mempty, mempty, mempty) logicalDT (M.lookup lpn (unAppendMap p))) <$> plpn) <$> unAppendMap assignments
+logicalDTs (assignments, p) = AppendMap $ (\plpn -> (\lpn -> maybe mempty logicalDT (M.lookup lpn (unAppendMap p))) <$> plpn) <$> unAppendMap assignments
 
 main :: IO ()
 main = print $ logicalDTs $ mconcat [
