@@ -16,7 +16,7 @@ type LogicalDTId = String
 type BagId = Int
 
 -- join semilattices
-type PhysicalBag = S.Map Batch (S.Max Qty)
+type PhysicalBag = S.Map Batch (S.Increasing Qty)
 
 type PhysicalDT = (PhysicalBag, PhysicalBag, PhysicalBag)
 
@@ -26,7 +26,7 @@ type DTAssignment = S.Map LogicalDTId (S.Value LPN)
 
 type PhysicalState = (DTAssignment, PhysicalDTs)
 
-type LogicalBag = S.Map SkuId (S.Max Qty)
+type LogicalBag = S.Map SkuId (S.Increasing Qty)
 
 type LogicalDT = (LogicalBag, LogicalBag, LogicalBag)
 
@@ -34,16 +34,16 @@ type LogicalState = S.Map LogicalDTId LogicalDT
 
 -- propagators
 physicalBag :: PickId -> SkuId -> Qty -> PhysicalBag
-physicalBag pickId skuId qty = S.map (pickId, skuId) (S.max qty)
+physicalBag pickId skuId qty = AppendMap $ M.singleton  (pickId, skuId) (S.Increasing qty)
 
 dtAssignment :: LogicalDTId -> LPN -> DTAssignment
-dtAssignment dtid lpn = S.map dtid (S.Value lpn)
+dtAssignment dtid lpn = AppendMap $ M.singleton dtid (S.Value lpn)
 
 logicalBag :: SkuId -> Qty -> LogicalBag
-logicalBag skuId qty = AppendMap $ M.singleton skuId (Max qty)
+logicalBag skuId qty = AppendMap $ M.singleton skuId (S.Increasing qty)
 
 physicalToLogicalBag :: PhysicalBag -> LogicalBag
-physicalToLogicalBag b = AppendMap $ mapKeysWith (\max1 max2 -> Max $ getMax max1 + getMax max2) snd $ unAppendMap b
+physicalToLogicalBag b = AppendMap $ mapKeysWith (\max1 max2 -> S.Increasing $ S.increasing max1 + S.increasing max2) snd $ unAppendMap b
 
 physicalBagToDT :: Int -> PhysicalBag -> PhysicalDT
 physicalBagToDT 0 b = (b, mempty, mempty)
@@ -62,7 +62,7 @@ physicalToLogicalState :: PhysicalState -> LogicalState
 physicalToLogicalState (assignments, p) = AppendMap $ (\lpn -> maybe mempty physicalTologicalDT (M.lookup lpn (unAppendMap p))) <$> M.mapMaybe S.getValue (unAppendMap assignments)
 
 physicalDTtoState :: LPN -> PhysicalDT -> PhysicalState
-physicalDTtoState lpn dt = (mempty, S.map lpn dt)
+physicalDTtoState lpn dt = (mempty, AppendMap $ M.singleton lpn dt)
 
 physicalBagToState :: LPN -> Int -> PhysicalBag -> PhysicalState
 physicalBagToState lpn bagId = physicalDTtoState lpn . physicalBagToDT bagId

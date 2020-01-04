@@ -5,13 +5,16 @@ module JoinSemilattice (
     (<<+),
     (+>>),
     (<+>),
-    UnionSet(..),
-    mapUnionSet,
-    IntersectionSet(..),
+    Increasing(..),
+    propagateIncrease,
+    Decreasing(..),
+    propagateDecrease,
+    Growing(..),
+    propagateGrowth,
+    Shrinking(..),
+    propagateShrink,
     List,
     Map,
-    JoinSemilattice.map,
-    JoinSemilattice.max,
     Promise(..),
     Value(..),
     getValue,
@@ -19,7 +22,6 @@ module JoinSemilattice (
     Monotone(..),
     propagate,
     SemiLat(..),
-    Entity(..),
 ) where
 
 import Prelude hiding (id, (.))
@@ -64,13 +66,83 @@ isDescending [] = True
 isDescending [s] = True
 isDescending (s1:rest@(s2:_)) = s1 +> s2 && isDescending rest
 
--- empty (no possible values) join semilattice
+-- 
 instance JoinSemilattice Void
 
--- elementary (single possible value) join semilattice
 instance JoinSemilattice ()
 
--- many possible values
+instance Ord a => JoinSemilattice (Max a)
+
+instance Ord a => JoinSemilattice (Min a)
+
+instance JoinSemilattice All
+
+instance JoinSemilattice Any
+
+instance JoinSemilattice (Proxy a)
+
+-- | If @a@ is Ord and we know it increases in time.
+-- | Equivalent to Max.
+newtype Increasing a = Increasing { increasing :: a }
+
+instance Ord a => Semigroup (Increasing a) where
+    (Increasing a) <> (Increasing b) = Increasing (Prelude.max a b)
+
+instance (Ord a, Bounded a) => Monoid (Increasing a) where
+    mempty = Increasing minBound
+
+deriving instance Eq a => Eq (Increasing a)
+
+instance Ord a => JoinSemilattice (Increasing a)
+
+propagateIncrease :: (a -> b) -> Increasing a -> Increasing b
+propagateIncrease f (Increasing a) = Increasing (f a) -- f must be monotone
+
+-- | If @a@ is Ord and we know it decreases in time.
+-- | Equivalent to Min.
+newtype Decreasing a = Decreasing { decreasing :: a }
+
+instance Ord a => Semigroup (Decreasing a) where
+    (Decreasing a) <> (Decreasing b) = Decreasing (Prelude.min a b)
+
+instance (Ord a, Bounded a) => Monoid (Decreasing a) where
+    mempty = Decreasing maxBound
+
+deriving instance Eq a => Eq (Decreasing a)
+
+instance Ord a => JoinSemilattice (Decreasing a)
+
+propagateDecrease :: (a -> b) -> Decreasing a -> Decreasing b
+propagateDecrease f (Decreasing a) = Decreasing (f a) -- f must be counter-monotone
+
+-- | If @a@ is Ord and we know we get more of them over time.
+newtype Growing a = Growing { growing :: Set a }
+
+deriving instance Eq a => Eq (Growing a)
+deriving instance Show a => Show (Growing a)
+
+instance Ord a => Semigroup (Growing a) where
+    s1 <> s2 = Growing $ S.union (growing s1) (growing s2)
+
+instance Ord a => JoinSemilattice (Growing a)
+
+propagateGrowth :: (Ord a, Ord b) => (a -> b) -> Growing a -> Growing b
+propagateGrowth f = Growing . S.map f . growing
+
+-- | If @a@ is Ord and we know we get fewer of them over time.
+newtype Shrinking a = Shrinking { shrinking :: Set a }
+
+deriving instance Eq a => Eq (Shrinking a)
+
+instance Ord a => Semigroup (Shrinking a) where
+    s1 <> s2 = Shrinking $ S.intersection (shrinking s1) (shrinking s2)
+
+instance Ord a => JoinSemilattice (Shrinking a)
+
+propagateShrink :: (Ord a, Ord b) => (a -> b) -> Shrinking a -> Shrinking b
+propagateShrink f = Shrinking . S.map f . shrinking
+
+--
 data Value a = Value a | Contradiction
 deriving instance (Eq a) => Eq (Value a)
 deriving instance (Show a) => Show (Value a)
@@ -91,6 +163,21 @@ instance Eq a => JoinSemilattice (Value a)
 getValue :: Value a -> Maybe a
 getValue (Value a) = Just a
 getValue Contradiction = Nothing
+
+
+
+-- higher order join semilattices
+newtype List a = List { list :: [a] } 
+
+deriving instance Show a => Show (List a)
+deriving instance Eq a => Eq (List a)
+
+instance Semigroup a => Semigroup (List a) where
+    l1 <> l2 = List $ foldl1 (<>) <$> transpose [list l1, list l2]
+
+instance JoinSemilattice a => JoinSemilattice (List a) where
+
+
     
 
 
@@ -128,68 +215,12 @@ instance Eq a => JoinSemilattice (Promise a)
 instance (JoinSemilattice a, JoinSemilattice b) => JoinSemilattice (a, b)
 instance (JoinSemilattice a, JoinSemilattice b, JoinSemilattice c) => JoinSemilattice (a, b, c)
 
--- union set join semilattice
-newtype UnionSet a = UnionSet { unionSet :: Set a }
-
-deriving instance Eq a => Eq (UnionSet a)
-deriving instance Show a => Show (UnionSet a)
-
-instance Ord a => Semigroup (UnionSet a) where
-    s1 <> s2 = UnionSet $ S.union (unionSet s1) (unionSet s2)
-
-instance Ord a => JoinSemilattice (UnionSet a)
-
--- propagator
-mapUnionSet :: (Ord a, Ord b) => (a -> b) -> UnionSet a -> UnionSet b
-mapUnionSet f = UnionSet . S.map f . unionSet
-
--- intersection set join semilattice
-newtype IntersectionSet a = IntersectionSet { intersectionSet :: Set a }
-
-deriving instance Eq a => Eq (IntersectionSet a)
-
-instance Ord a => Semigroup (IntersectionSet a) where
-    s1 <> s2 = IntersectionSet $ S.intersection (intersectionSet s1) (intersectionSet s2)
-
-instance Ord a => JoinSemilattice (IntersectionSet a)
-
--- list join semilattice
-newtype List a = List { list :: [a] } 
-
-deriving instance Show a => Show (List a)
-deriving instance Eq a => Eq (List a)
-
-instance Semigroup a => Semigroup (List a) where
-    l1 <> l2 = List $ foldl1 (<>) <$> transpose [list l1, list l2]
-
-instance JoinSemilattice a => JoinSemilattice (List a) where
 
 -- 
 type Map k v = AppendMap k v
 
 instance (Ord k, JoinSemilattice v) => JoinSemilattice (Map k v)
 
-map :: k -> v -> Map k v
-map k v = AppendMap (M.singleton k v)
-
--- emptyMap :: Map k v
--- emptyMap = 
-
---
-instance (Ord a, Bounded a) => JoinSemilattice (Max a)
-
-max :: a -> Max a
-max = Max
-
---
-instance (Ord a, Bounded a) => JoinSemilattice (Min a)
-
-instance JoinSemilattice All
-
-instance JoinSemilattice Any
-
---
-instance JoinSemilattice (Proxy a)
 
 instance JoinSemilattice a => JoinSemilattice (Identity a)
 
@@ -227,38 +258,3 @@ instance Category SemiLat where
     m . IdHomo = m
     IdHomo . m = m
     (Homo p2) . (Homo p1) = Homo (p2 . p1)
-    
-
---
-class JoinSemilattice s => Entity i s o | s -> i o where
-    from :: i -> s
-    to :: s -> o
-    
--- instance (Entity i1 s1 o2, Entity i2 s2 o2) => Entity (i1, i2) (s1, s2) (o1, o2) where
---     from (i1, i2) = (from i1, from i2)
---     to (s1, s2) = (to s1, to s2) 
-
--- instance (Ord a, Bounded a) => Entity a (Max a) a where
---     from = Max
---     to = getMax
-
--- instance (Ord k, Entity i v o) => Entity (k, i) (Map k v) (M.Map k o) where
---     from (k, i) = AppendMap (M.singleton k (from i))
---     to m = to <$> unAppendMap m
-
--- f s +> s
--- f s <> s = f s
--- s2 +> s1 => f s2 +> f s1
--- f s = s' <> s
--- s2 +> s1 => s' <> s2 +> s' <> s1
-
--- s2 +> s1 
--- s2 <> s1 = s2
--- s2 <> s1 <> s' = s2 <> s'
--- s2 <> s1 <> s' <> s' = s2 <> s'
--- s2 <> s' <> s1 <> s' = s2 <> s'
--- f s2 <> f s1 = f s2 -- where f s = s' <> s
--- f s2 +> f s1
--- => if f s = s' <> s for given s' then f is monotinic
--- let's call s' an event
-
