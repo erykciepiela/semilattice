@@ -42,8 +42,8 @@ picking lpn bagId batchId skuId qty = picking' lpn $ dt bagId $ bag batchId skuI
 assigning :: DTLogicalId -> LPN -> State
 assigning dtid lpn = (S.map dtid (S.Value lpn), mempty)
 
-stateContent :: State -> Map DTLogicalId (S.Value (Map SkuId Qty, Map SkuId Qty, Map SkuId Qty))
-stateContent (assignments, p) = (\plpn -> (\lpn -> maybe (mempty, mempty, mempty) dtContent (M.lookup lpn (unAppendMap p))) <$> plpn) <$> unAppendMap assignments -- dtContent <$> unAppendMap p
+stateContent :: State -> Map DTLogicalId (S.Value (LPN, (Map SkuId Qty, Map SkuId Qty, Map SkuId Qty)))
+stateContent (assignments, p) = (\plpn -> (\lpn -> (lpn, maybe (mempty, mempty, mempty) dtContent (M.lookup lpn (unAppendMap p)))) <$> plpn) <$> unAppendMap assignments -- dtContent <$> unAppendMap p
 
 data Pick = Pick LPN Int PickId SkuId Qty
 
