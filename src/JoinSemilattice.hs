@@ -1,10 +1,11 @@
 module JoinSemilattice (
-    JoinSemilattice,
+    JoinSemilattice(..),
     (+>),
     (<+),
     (<<+),
     (+>>),
     (<+>),
+    Based(..),
     -- | Primitive join semilattices 
     Increasing(..),
     propagateIncrease,
@@ -62,18 +63,40 @@ isDescending [] = True
 isDescending [s] = True
 isDescending (s1:rest@(s2:_)) = s1 +> s2 && isDescending rest
 
+--
+class JoinSemilattice s => Based s b | s -> b where
+    base :: b -> s
+
 -- 
 instance JoinSemilattice ()
 
+instance Based () () where
+    base = id
+
+--
 instance (Ord a, Bounded a) => JoinSemilattice (Max a)
 
+instance (Ord a, Bounded a) => Based (Max a) a where
+    base = Max
+
+--
 instance (Ord a, Bounded a) => JoinSemilattice (Min a)
 
+instance (Ord a, Bounded a) => Based (Min a) a where
+    base = Min
+
+--
 instance JoinSemilattice All
 
+--
 instance JoinSemilattice Any
 
+--
 instance JoinSemilattice (Proxy a)
+
+instance Based (Proxy a) () where
+    base _ = Proxy
+
 
 -- | If @a@ is Ord and Bounded and we know it increases in time.
 -- | Equivalent to Max.
@@ -88,6 +111,9 @@ instance (Ord a, Bounded a) => Monoid (Increasing a) where
 deriving instance Eq a => Eq (Increasing a)
 
 instance (Ord a, Bounded a) => JoinSemilattice (Increasing a)
+
+instance (Ord a, Bounded a) => Based (Increasing a) a where
+    base = Increasing
 
 propagateIncrease :: (a -> b) -> Increasing a -> Increasing b
 propagateIncrease f (Increasing a) = Increasing (f a) -- f must be monotone
@@ -106,6 +132,9 @@ deriving instance Eq a => Eq (Decreasing a)
 
 instance (Ord a, Bounded a) => JoinSemilattice (Decreasing a)
 
+instance (Ord a, Bounded a) => Based (Decreasing a) a where
+    base = Decreasing
+
 propagateDecrease :: (a -> b) -> Decreasing a -> Decreasing b
 propagateDecrease f (Decreasing a) = Decreasing (f a) -- f must be counter-monotone
 
@@ -123,6 +152,9 @@ instance Ord a => Monoid (Growing a) where
 
 instance Ord a => JoinSemilattice (Growing a)
 
+instance Ord a => Based (Growing a) a where
+    base = Growing . S.singleton
+
 propagateGrowth :: (Ord a, Ord b) => (a -> b) -> Growing a -> Growing b
 propagateGrowth f = Growing . S.map f . growing
 
@@ -138,6 +170,9 @@ instance (Ord a, Enum a, Bounded a) => Monoid (Shrinking a) where
     mempty = Shrinking $ S.fromList $ enumFromTo minBound maxBound
 
 instance (Ord a, Enum a, Bounded a) => JoinSemilattice (Shrinking a)
+
+instance (Ord a, Enum a, Bounded a) => Based (Shrinking a) a where
+    base a = Shrinking $ S.delete a (S.fromList $ enumFromTo minBound maxBound)
 
 propagateShrink :: (Ord a, Ord b) => (a -> b) -> Shrinking a -> Shrinking b
 propagateShrink f = Shrinking . S.map f . shrinking
@@ -164,6 +199,10 @@ instance Ord a => Monoid (Same a) where
 
 instance Ord a => JoinSemilattice (Same a)
 
+instance Ord a => Based (Same a) a where
+    base = Unambiguous
+
+
 propagateSame :: (Ord a, Ord b) => (a -> b) -> Same a -> Same b
 propagateSame f Unknown = Unknown
 propagateSame f (Unambiguous a) = Unambiguous (f a)
@@ -176,6 +215,9 @@ instance JoinSemilattice a => JoinSemilattice (Identity a)
 
 --
 instance (Ord k, JoinSemilattice v) => JoinSemilattice (AppendMap k v)
+
+instance (Ord k, JoinSemilattice v) => Based (AppendMap k v) (k, v) where
+    base (k, v) = AppendMap $ M.singleton k v
 
 --
 newtype List a = List { list :: [a] } 
