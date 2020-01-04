@@ -5,14 +5,16 @@ module JoinSemilattice (
     (<<+),
     (+>>),
     (<+>),
-    UnionSet,
-    IntersectionSet,
+    UnionSet(..),
+    mapUnionSet,
+    IntersectionSet(..),
     List,
     Map,
     JoinSemilattice.map,
     JoinSemilattice.max,
     Promise(..),
     Value(..),
+    getValue,
     Data.Semigroup.Max,
     Monotone(..),
     propagate,
@@ -85,6 +87,10 @@ instance Eq a => Semigroup (Value a) where
         | otherwise = Contradiction
 
 instance Eq a => JoinSemilattice (Value a)
+
+getValue :: Value a -> Maybe a
+getValue (Value a) = Just a
+getValue Contradiction = Nothing
     
 
 
@@ -126,11 +132,16 @@ instance (JoinSemilattice a, JoinSemilattice b, JoinSemilattice c) => JoinSemila
 newtype UnionSet a = UnionSet { unionSet :: Set a }
 
 deriving instance Eq a => Eq (UnionSet a)
+deriving instance Show a => Show (UnionSet a)
 
 instance Ord a => Semigroup (UnionSet a) where
     s1 <> s2 = UnionSet $ S.union (unionSet s1) (unionSet s2)
 
 instance Ord a => JoinSemilattice (UnionSet a)
+
+-- propagator
+mapUnionSet :: (Ord a, Ord b) => (a -> b) -> UnionSet a -> UnionSet b
+mapUnionSet f = UnionSet . S.map f . unionSet
 
 -- intersection set join semilattice
 newtype IntersectionSet a = IntersectionSet { intersectionSet :: Set a }

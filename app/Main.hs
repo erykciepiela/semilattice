@@ -5,6 +5,7 @@ import Data.Map as M
 import Data.Map.Append
 import Data.Semigroup
 import Data.Maybe
+import Data.Set as Set
 
 type PickId = String
 type SkuId = String
@@ -12,6 +13,7 @@ type Qty = Int
 type Batch = (String, SkuId)
 type LPN = String
 type DTLogicalId = String
+type BagId = Int
 
 type Bag = S.Map Batch (S.Max Qty)
 
@@ -20,6 +22,9 @@ bag pickId skuId qty = S.map (pickId, skuId) (S.max qty)
 
 --
 type LogicalBag = S.Map SkuId (S.Max Qty)
+
+lb :: SkuId -> Qty -> LogicalBag
+lb skuId qty = AppendMap $ M.singleton skuId (Max qty)
 
 -- propagator
 logicalBag :: Bag -> LogicalBag
@@ -36,40 +41,41 @@ dt 2 b = (mempty, mempty, b)
 --
 type LogicalDT = (LogicalBag, LogicalBag, LogicalBag)
 
+dt' :: Int -> LogicalBag -> LogicalDT
+dt' 0 b = (b, mempty, mempty)
+dt' 1 b = (mempty, b, mempty)
+dt' 2 b = (mempty, mempty, b)
+
+
 -- propagator
 logicalDT :: DT -> LogicalDT
 logicalDT (b1, b2, b3) = (logicalBag b1, logicalBag b2, logicalBag b3)
 
-type State = (S.Map DTLogicalId (S.Value LPN), S.Map LPN DT)
+type PhysicalState = (S.Map DTLogicalId (S.Value LPN), S.Map LPN DT)
 
-picking :: LPN -> Int -> PickId -> SkuId -> Qty -> State
-picking lpn bagId batchId skuId qty = (mempty, S.map lpn (dt bagId $ bag batchId skuId qty))
+dtPick :: LPN -> Int -> PickId -> SkuId -> Qty -> PhysicalState
+dtPick lpn bagId batchId skuId qty = (mempty, S.map lpn (dt bagId $ bag batchId skuId qty))
 
-assigning :: DTLogicalId -> LPN -> State
-assigning dtid lpn = (S.map dtid (S.Value lpn), mempty)
+dtAssignment :: DTLogicalId -> LPN -> PhysicalState
+dtAssignment dtid lpn = (S.map dtid (S.Value lpn), mempty)
 
 --
-type LogicalDTs = S.Map DTLogicalId (S.Value LogicalDT)
+type LogicalState = S.Map DTLogicalId LogicalDT
 
 -- propagator
-logicalDTs :: State -> LogicalDTs
-logicalDTs (assignments, p) = AppendMap $ fmap (\lpn -> maybe mempty logicalDT (M.lookup lpn (unAppendMap p))) <$> unAppendMap assignments
+logicalState :: PhysicalState -> LogicalState
+-- logicalState (assignments, p) = AppendMap $ fmap (\lpn -> maybe mempty logicalDT (M.lookup lpn (unAppendMap p))) <$> unAppendMap assignments
+logicalState (assignments, p) = AppendMap $ (\lpn -> maybe mempty logicalDT (M.lookup lpn (unAppendMap p))) <$> M.mapMaybe S.getValue (unAppendMap assignments)
 
-goalLogicalDTs :: LogicalDTs
-goalLogicalDTs = AppendMap {unAppendMap = fromList [("1",S.Value (AppendMap {unAppendMap = fromList [("apple",Max {getMax = 3}),("coconut",Max {getMax = 3})]},AppendMap {unAppendMap = fromList [("banana",Max {getMax = 4})]},AppendMap {unAppendMap = fromList [("donut",Max {getMax = 5})]})),("2",S.Value (AppendMap {unAppendMap = fromList [("cucumber",Max {getMax = 7})]},AppendMap {unAppendMap = fromList []},AppendMap {unAppendMap = fromList []}))]}
+-- ctor
+logicalPick :: DTLogicalId -> BagId -> SkuId -> Qty -> LogicalState
+logicalPick dtId bagId skuId qty = AppendMap $ M.singleton dtId $ dt' bagId $ lb skuId qty
 
-goalLogicalDTs'' :: LogicalDTs
-goalLogicalDTs'' = AppendMap {unAppendMap = fromList [("1",S.Value (AppendMap {unAppendMap = fromList [("apple",Max {getMax = 3}),("coconut",Max {getMax = 3})]},AppendMap {unAppendMap = fromList [("banana",Max {getMax = 4})]},AppendMap {unAppendMap = fromList [("donut",Max {getMax = 5})]})),("2",S.Value (AppendMap {unAppendMap = fromList [("cucumber",Max {getMax = 7})]},AppendMap {unAppendMap = fromList [("carrot", Max {getMax = 3})]},AppendMap {unAppendMap = fromList []}))]}
-
-goalLogicalDTs' :: LogicalDTs
-goalLogicalDTs' = AppendMap {unAppendMap = fromList [("1",S.Value (AppendMap {unAppendMap = fromList [("apple",Max {getMax = 3}),("coconut",Max {getMax = 3})]},AppendMap {unAppendMap = fromList [("banana",Max {getMax = 4})]},AppendMap {unAppendMap = fromList [("donut",Max {getMax = 5})]}))]}
 
 main :: IO ()
 main = do
-    let ldts = logicalDTs $ mconcat [ assigning "1" "123", picking "123" 0 "1" "apple" 3, picking "123" 1 "2" "banana" 4, picking "123" 0 "3" "coconut" 1, picking "123" 0 "4" "coconut" 2, picking "123" 2 "5" "donut" 5, picking "123" 2 "5" "donut" 5, assigning "2" "444", picking "444" 0 "6" "cucumber" 7]
-    print (goalLogicalDTs S.+> ldts) -- T
-    print (goalLogicalDTs S.<+ ldts) -- T
-    print (goalLogicalDTs' S.+> ldts) -- F
-    print (goalLogicalDTs' S.<+ ldts) -- T
-    print (goalLogicalDTs'' S.+> ldts) -- T
-    print (goalLogicalDTs'' S.<+ ldts) -- F
+    let actualPhysical = mconcat [ dtAssignment "1" "123", dtPick "123" 0 "1" "apple" 3, dtPick "123" 1 "2" "banana" 4, dtPick "123" 0 "3" "coconut" 1, dtPick "123" 0 "4" "coconut" 2, dtPick "123" 2 "5" "donut" 5, dtPick "123" 2 "5" "donut" 5, dtAssignment "2" "444", dtPick "444" 0 "6" "cucumber" 7]
+    let actualLogical = logicalState actualPhysical
+    let expectedLogic = mconcat [logicalPick "1" 0 "apple" 3, logicalPick "1" 1 "banana" 4]
+    print $ actualLogical S.+> expectedLogic -- True
+    print $ actualLogical S.<+ expectedLogic -- False 
