@@ -18,7 +18,6 @@ module JoinSemilattice (
     propagateShrink,
     -- | Higher-order join semilattices
     List,
-    Map,
 ) where
 
 import Prelude hiding (id, (.))
@@ -171,6 +170,15 @@ propagateSame f (Unambiguous a) = Unambiguous (f a)
 propagateSame f (Ambiguous as) = Ambiguous (S.map f as)
 
 -- higher order join semilattices
+
+--
+instance JoinSemilattice a => JoinSemilattice (Identity a)
+
+--
+instance (Ord k, JoinSemilattice v) => JoinSemilattice (AppendMap k v)
+
+
+--
 newtype List a = List { list :: [a] } 
 
 deriving instance Show a => Show (List a)
@@ -187,45 +195,5 @@ instance JoinSemilattice a => JoinSemilattice (List a) where
 -- product join semilattice
 instance (JoinSemilattice a, JoinSemilattice b) => JoinSemilattice (a, b)
 instance (JoinSemilattice a, JoinSemilattice b, JoinSemilattice c) => JoinSemilattice (a, b, c)
-
-
--- 
-type Map k v = AppendMap k v
-
-instance (Ord k, JoinSemilattice v) => JoinSemilattice (Map k v)
-
-
-instance JoinSemilattice a => JoinSemilattice (Identity a)
-
-data Monotone a b where
-    -- f (a1 <> a2) +> f a1
-    -- f (a1 <> a2) +> f a2
-    Monotone :: (JoinSemilattice a, JoinSemilattice b) => (a -> b) -> Monotone a b
-    IdMonotone :: Monotone a a
-
-propagate :: Monotone a b -> a -> b
-propagate IdMonotone = id
-propagate (Monotone f) = f
-
-foo :: JoinSemilattice a => Monotone a b -> a -> a -> (a, b)
-foo m prev a = let new = prev <> a in (new, propagate m new)
-
-instance Category Monotone where
-    id = IdMonotone
-    m . IdMonotone = m
-    IdMonotone . m = m
-    (Monotone p2) . (Monotone p1) = Monotone (p2 . p1)
-
--- every SemiLat is Monotone
-data SemiLat a b where
-    -- f (x <> y) = f x <> f y +> f x
-    --                         +> f y
-    -- f(⊥)=⊥
-    Homo :: (JoinSemilattice a, JoinSemilattice b) => (a -> b) -> SemiLat a b
-    IdHomo :: SemiLat a a
-
-instance Category SemiLat where
-    id = IdHomo
-    m . IdHomo = m
-    IdHomo . m = m
-    (Homo p2) . (Homo p1) = Homo (p2 . p1)
+instance (JoinSemilattice a, JoinSemilattice b, JoinSemilattice c, JoinSemilattice d) => JoinSemilattice (a, b, c, d)
+--- and so on...

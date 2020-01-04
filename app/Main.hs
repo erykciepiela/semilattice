@@ -16,21 +16,21 @@ type LogicalDTId = String
 type BagId = Int
 
 -- join semilattices
-type PhysicalBag = S.Map Batch (S.Increasing Qty)
+type PhysicalBag = AppendMap Batch (S.Increasing Qty)
 
 type PhysicalDT = (PhysicalBag, PhysicalBag, PhysicalBag)
 
-type PhysicalDTs = S.Map LPN PhysicalDT
+type PhysicalDTs = AppendMap LPN PhysicalDT
 
-type DTAssignment = S.Map LogicalDTId (S.Same LPN)
+type DTAssignment = AppendMap LogicalDTId (S.Same LPN)
 
 type PhysicalState = (DTAssignment, PhysicalDTs)
 
-type LogicalBag = S.Map SkuId (S.Increasing Qty)
+type LogicalBag = AppendMap SkuId (S.Increasing Qty)
 
 type LogicalDT = (LogicalBag, LogicalBag, LogicalBag)
 
-type LogicalState = S.Map LogicalDTId LogicalDT
+type LogicalState = AppendMap LogicalDTId LogicalDT
 
 -- propagators
 physicalBag :: PickId -> SkuId -> Qty -> PhysicalBag
