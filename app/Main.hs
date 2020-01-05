@@ -2,7 +2,6 @@ module Main where
 
 import Semilattice
 import Data.Map as M
-import Data.Map.Append
 
 type PickId = String
 type SkuId = String
@@ -12,21 +11,21 @@ type LogicalDTId = String
 type BagId = Int
 
 -- bounded join semilattices
-type PhysicalBag = AppendMap (PickId, SkuId) (Increasing Qty)
+type PhysicalBag = Map (PickId, SkuId) (Increasing Qty)
 
 type PhysicalDT = (PhysicalBag, PhysicalBag, PhysicalBag)
 
-type PhysicalDTs = AppendMap LPN PhysicalDT
+type PhysicalDTs = Map LPN PhysicalDT
 
-type DTAssignment = AppendMap LogicalDTId (Same LPN)
+type DTAssignment = Map LogicalDTId (Same LPN)
 
 type PhysicalState = (DTAssignment, PhysicalDTs)
 
-type LogicalBag = AppendMap SkuId (Increasing Qty)
+type LogicalBag = Map SkuId (Increasing Qty)
 
 type LogicalDT = (LogicalBag, LogicalBag, LogicalBag)
 
-type LogicalState = AppendMap LogicalDTId LogicalDT
+type LogicalState = Map LogicalDTId LogicalDT
 
 -- homomorphisms
 physicalBag :: PickId -> SkuId -> Qty -> PhysicalBag
@@ -39,7 +38,7 @@ logicalBag :: SkuId -> Qty -> LogicalBag
 logicalBag skuId qty = base (skuId, Increasing qty)
 
 physicalToLogicalBag :: PhysicalBag -> LogicalBag
-physicalToLogicalBag b = AppendMap $ mapKeysWith (\max1 max2 -> Increasing $ increasing max1 + increasing max2) snd $ unAppendMap b
+physicalToLogicalBag = mapKeysWith (\max1 max2 -> Increasing $ increasing max1 + increasing max2) snd
 
 physicalBagToDT :: Int -> PhysicalBag -> PhysicalDT
 physicalBagToDT 0 b = (b, mempty, mempty)
@@ -55,10 +54,10 @@ logicalBagToDT 1 b = (mempty, b, mempty)
 logicalBagToDT 2 b = (mempty, mempty, b)
 
 physicalToLogicalState :: PhysicalState -> LogicalState
-physicalToLogicalState (assignments, p) = AppendMap $ (\slpn -> case slpn of
+physicalToLogicalState (assignments, p) = (\slpn -> case slpn of
     Unknown -> mempty
     Ambiguous _ -> mempty 
-    (Unambiguous lpn) -> maybe mempty physicalTologicalDT (M.lookup lpn (unAppendMap p))) <$> unAppendMap assignments
+    (Unambiguous lpn) -> maybe mempty physicalTologicalDT (M.lookup lpn p)) <$> assignments
 
 physicalDTtoState :: LPN -> PhysicalDT -> PhysicalState
 physicalDTtoState lpn dt = (mempty, base (lpn, dt))

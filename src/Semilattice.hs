@@ -25,14 +25,13 @@ import Prelude hiding (id, (.))
 import Data.Set as S
 import Data.Semigroup
 import qualified Data.Map as M
-import Data.Map.Append
 import Data.List
 import Control.Category
 import Data.Proxy
 import Data.Functor.Identity
 import Data.Void
 
-class (Semigroup s) => JoinSemilattice s where
+class JoinSemilattice s where
     -- a \/ (b  \/ c) = (a \/ n) \/ c - associativity
     -- a \/ b = b \/ a - commutativity, saves us from out of order messages problem
     -- a \/ a = a idempotence, saves us from exactly-once delivery guarantee problem
@@ -270,20 +269,20 @@ propagateSame f (Ambiguous as) = Ambiguous (S.map f as)
 
 --
 instance JoinSemilattice a => JoinSemilattice (Identity a) where
-    (\/) = (<>)
+    Identity a1 \/ Identity a2 = Identity $ a1 \/ a2
 
 instance BoundedJoinSemilattice a => BoundedJoinSemilattice (Identity a) where
     bottom = mempty
 
 --
-instance (Ord k, JoinSemilattice v) => JoinSemilattice (AppendMap k v) where
-    (\/) = (<>)
+instance (Ord k, JoinSemilattice v) => JoinSemilattice (M.Map k v) where
+    (\/) = M.unionWith (\/)
 
-instance (Ord k, BoundedJoinSemilattice v) => BoundedJoinSemilattice (AppendMap k v) where
+instance (Ord k, BoundedJoinSemilattice v) => BoundedJoinSemilattice (M.Map k v) where
     bottom = mempty
 
-instance (Ord k, BoundedJoinSemilattice v) => Based (AppendMap k v) (k, v) where
-    base (k, v) = AppendMap $ M.singleton k v
+instance (Ord k, BoundedJoinSemilattice v) => Based (M.Map k v) (k, v) where
+    base (k, v) = M.singleton k v
 
 --
 newtype List a = List { list :: [a] } 
@@ -298,20 +297,20 @@ instance Monoid a => Monoid (List a) where
     mempty = List $ repeat mempty
 
 instance JoinSemilattice a => JoinSemilattice (List a) where
-    (\/) = (<>)
+    l1 \/ l2 = List $ foldl1 (\/) <$> transpose [list l1, list l2]
 
 instance BoundedJoinSemilattice a => BoundedJoinSemilattice (List a) where
     bottom = mempty
 
 -- 
 instance (JoinSemilattice a, JoinSemilattice b) => JoinSemilattice (a, b) where
-    (\/) = (<>)
+    (a1, b1) \/ (a2, b2) = (a1 \/ a2, b1 \/ b2)
 
 instance (JoinSemilattice a, JoinSemilattice b, JoinSemilattice c) => JoinSemilattice (a, b, c) where
-    (\/) = (<>)
+    (a1, b1, c1) \/ (a2, b2, c2) = (a1 \/ a2, b1 \/ b2, c1 \/ c2)
 
 instance (JoinSemilattice a, JoinSemilattice b, JoinSemilattice c, JoinSemilattice d) => JoinSemilattice (a, b, c, d) where
-    (\/) = (<>)
+    (a1, b1, c1, d1) \/ (a2, b2, c2, d2) = (a1 \/ a2, b1 \/ b2, c1 \/ c2, d1 \/ d2)
 
 instance (BoundedJoinSemilattice a, BoundedJoinSemilattice b) => BoundedJoinSemilattice (a, b) where
     bottom = mempty
