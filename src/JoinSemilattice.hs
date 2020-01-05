@@ -31,13 +31,22 @@ import Control.Category
 import Data.Proxy
 import Data.Functor.Identity
 import Data.Void
-import Data.IntMap.Strict
 
 class (Eq s, Semigroup s) => JoinSemilattice s where
-
-class JoinSemilattice s => BoundedJoinSemilattice s where
     -- a <> b = b <> a - commutativity, saves us from out of order messages problem
     -- a <> a = a - idempotence, saves us from exactly-once delivery guarantee problem
+
+class (Monoid s, JoinSemilattice s) => BoundedJoinSemilattice s where
+
+bjsconcat :: (Ord s, BoundedJoinSemilattice s) => S.Set s -> s
+bjsconcat = S.foldr (<>) mempty
+
+bjsconcat' :: (Foldable f, BoundedJoinSemilattice s) => f s -> s
+bjsconcat' = Prelude.foldr (<>) mempty
+-- if f s is bounded join semilattice then it's a propagator
+
+bjsconcat'' :: (Foldable f, BoundedJoinSemilattice s, BoundedJoinSemilattice (f s)) => f s -> s
+bjsconcat'' = Prelude.foldr (<>) mempty
 
 (+>) :: BoundedJoinSemilattice s => s -> s -> Bool
 s1 +> s2 = s1 <> s2 == s1
