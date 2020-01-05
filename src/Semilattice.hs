@@ -166,6 +166,13 @@ propagateIncrease f (Increasing a) = Increasing (f a) -- f must be monotone!
 -- f (Inc 5) = (Inc 4) \/ (Inc 6)
 -- Inc 6 = Inc 6
 
+propagateIncrease2 :: (a -> b -> c) -> Increasing a -> Increasing b -> Increasing c
+propagateIncrease2 f (Increasing a) (Increasing b) = Increasing (f a b) -- f must be monotone!
+-- f (I 2 \/ I 5) (I 3 \/ I 4) = f (I 2) (I 3) \/ f (I 5) (I 4) 
+-- f (I 5) (I 4) = (I 2) \/ (I 3) \/ (I 5) \/ (I 4) 
+-- (I 5) \/ (I 4) = (I 2) \/ (I 3) \/ (I 5) \/ (I 4) 
+-- I 5 = I 5
+
 -- | If @a@ is Ord and Bounded and we know it decreases in time.
 -- | Equivalent to Min.
 newtype Decreasing a = Decreasing { decreasing :: a }

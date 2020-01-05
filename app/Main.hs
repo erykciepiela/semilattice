@@ -41,26 +41,26 @@ physicalToLogicalBag :: PhysicalBag -> LogicalBag
 physicalToLogicalBag = mapKeysWith (\max1 max2 -> Increasing $ increasing max1 + increasing max2) snd
 
 physicalBagToDT :: Int -> PhysicalBag -> PhysicalDT
-physicalBagToDT 0 b = (b, mempty, mempty)
-physicalBagToDT 1 b = (mempty, b, mempty)
-physicalBagToDT 2 b = (mempty, mempty, b)
+physicalBagToDT 0 b = (b, bottom, bottom)
+physicalBagToDT 1 b = (bottom, b, bottom)
+physicalBagToDT 2 b = (bottom, bottom, b)
 
 physicalTologicalDT :: PhysicalDT -> LogicalDT
 physicalTologicalDT (b1, b2, b3) = (physicalToLogicalBag b1, physicalToLogicalBag b2, physicalToLogicalBag b3)
 
 logicalBagToDT :: Int -> LogicalBag -> LogicalDT
-logicalBagToDT 0 b = (b, mempty, mempty)
-logicalBagToDT 1 b = (mempty, b, mempty)
-logicalBagToDT 2 b = (mempty, mempty, b)
+logicalBagToDT 0 b = (b, bottom, bottom)
+logicalBagToDT 1 b = (bottom, b, bottom)
+logicalBagToDT 2 b = (bottom, bottom, b)
 
 physicalToLogicalState :: PhysicalState -> LogicalState
 physicalToLogicalState (assignments, p) = (\slpn -> case slpn of
-    Unknown -> mempty
-    Ambiguous _ -> mempty 
-    (Unambiguous lpn) -> maybe mempty physicalTologicalDT (M.lookup lpn p)) <$> assignments
+    Unknown -> bottom
+    Ambiguous _ -> bottom 
+    (Unambiguous lpn) -> maybe bottom physicalTologicalDT (M.lookup lpn p)) <$> assignments
 
 physicalDTtoState :: LPN -> PhysicalDT -> PhysicalState
-physicalDTtoState lpn dt = (mempty, base (lpn, dt))
+physicalDTtoState lpn dt = (bottom, base (lpn, dt))
 
 physicalBagToState :: LPN -> Int -> PhysicalBag -> PhysicalState
 physicalBagToState lpn bagId = physicalDTtoState lpn . physicalBagToDT bagId
@@ -69,7 +69,7 @@ logicalDTtoState :: LogicalDTId -> LogicalDT -> LogicalState
 logicalDTtoState dtId dt = base (dtId, dt)
 
 dtAssignmentToPhysicalState :: DTAssignment -> PhysicalState
-dtAssignmentToPhysicalState a = (a, mempty)
+dtAssignmentToPhysicalState a = (a, bottom)
 
 --
 main :: IO ()
