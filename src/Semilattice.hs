@@ -36,18 +36,18 @@ class JoinSemilattice s where
     -- a \/ a = a idempotence, saves us from exactly-once delivery guarantee problem
     (\/) :: s -> s -> s
 
-class (Monoid s, JoinSemilattice s) => BoundedJoinSemilattice s where
+class JoinSemilattice s => BoundedJoinSemilattice s where
     bottom :: s
 
 bjsconcat :: (Ord s, BoundedJoinSemilattice s) => S.Set s -> s
-bjsconcat = S.foldr (<>) mempty
+bjsconcat = S.foldr (\/) bottom
 
 bjsconcat' :: (Foldable f, BoundedJoinSemilattice s) => f s -> s
-bjsconcat' = Prelude.foldr (<>) mempty
+bjsconcat' = Prelude.foldr (\/) bottom
 -- if f s is bounded join semilattice then it's a propagator
 
 bjsconcat'' :: (Foldable f, BoundedJoinSemilattice s, BoundedJoinSemilattice (f s)) => f s -> s
-bjsconcat'' = Prelude.foldr (<>) mempty
+bjsconcat'' = Prelude.foldr (\/) bottom
 
 (+>) :: (Eq s, BoundedJoinSemilattice s) => s -> s -> Bool
 s1 +> s2 = s1 \/ s2 == s1
@@ -90,7 +90,7 @@ instance Based () () where
     base = id
 
 --
-instance (Ord a, Bounded a) => JoinSemilattice (Max a ) where
+instance Ord a => JoinSemilattice (Max a) where
     (\/) = (<>)
 
 instance (Ord a, Bounded a) => BoundedJoinSemilattice (Max a) where
@@ -100,7 +100,7 @@ instance (Ord a, Bounded a) => Based (Max a) a where
     base = Max
 
 --
-instance (Ord a, Bounded a) => JoinSemilattice (Min a) where
+instance Ord a => JoinSemilattice (Min a) where
     (\/) = (<>)
 
 instance (Ord a, Bounded a) => BoundedJoinSemilattice (Min a) where
@@ -264,14 +264,14 @@ propagateSame f Unknown = Unknown
 propagateSame f (Unambiguous a) = Unambiguous (f a)
 propagateSame f (Ambiguous as) = Ambiguous (S.map f as)
 
--- higher order join semilattices
+-- higher kinded join semilattices
 
 --
 instance JoinSemilattice a => JoinSemilattice (Identity a) where
     Identity a1 \/ Identity a2 = Identity $ a1 \/ a2
 
 instance BoundedJoinSemilattice a => BoundedJoinSemilattice (Identity a) where
-    bottom = mempty
+    bottom = bottom
 
 --
 instance (Ord k, JoinSemilattice v) => JoinSemilattice (M.Map k v) where
@@ -294,19 +294,21 @@ instance BoundedJoinSemilattice a => BoundedJoinSemilattice [a] where
 instance (JoinSemilattice a, JoinSemilattice b) => JoinSemilattice (a, b) where
     (a1, b1) \/ (a2, b2) = (a1 \/ a2, b1 \/ b2)
 
+instance (BoundedJoinSemilattice a, BoundedJoinSemilattice b) => BoundedJoinSemilattice (a, b) where
+    bottom = (bottom, bottom)
+
+--
 instance (JoinSemilattice a, JoinSemilattice b, JoinSemilattice c) => JoinSemilattice (a, b, c) where
     (a1, b1, c1) \/ (a2, b2, c2) = (a1 \/ a2, b1 \/ b2, c1 \/ c2)
 
+instance (BoundedJoinSemilattice a, BoundedJoinSemilattice b, BoundedJoinSemilattice c) => BoundedJoinSemilattice (a, b, c) where
+    bottom = (bottom, bottom, bottom)
+
+--
 instance (JoinSemilattice a, JoinSemilattice b, JoinSemilattice c, JoinSemilattice d) => JoinSemilattice (a, b, c, d) where
     (a1, b1, c1, d1) \/ (a2, b2, c2, d2) = (a1 \/ a2, b1 \/ b2, c1 \/ c2, d1 \/ d2)
 
-instance (BoundedJoinSemilattice a, BoundedJoinSemilattice b) => BoundedJoinSemilattice (a, b) where
-    bottom = mempty
-
-instance (BoundedJoinSemilattice a, BoundedJoinSemilattice b, BoundedJoinSemilattice c) => BoundedJoinSemilattice (a, b, c) where
-    bottom = mempty
-
 instance (BoundedJoinSemilattice a, BoundedJoinSemilattice b, BoundedJoinSemilattice c, BoundedJoinSemilattice d) => BoundedJoinSemilattice (a, b, c, d) where
-    bottom = mempty
+    bottom = (bottom, bottom, bottom, bottom)
 
---- and so on...
+-- and so on...
