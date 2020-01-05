@@ -38,7 +38,7 @@ logicalBag :: SkuId -> Qty -> LogicalBag
 logicalBag skuId qty = base (skuId, Increasing qty)
 
 physicalToLogicalBag :: PhysicalBag -> LogicalBag
-physicalToLogicalBag = mapKeysWith (\max1 max2 -> Increasing $ increasing max1 + increasing max2) snd
+physicalToLogicalBag = propagateMap (propagateIncrease2 (+)) snd
 
 physicalBagToDT :: Int -> PhysicalBag -> PhysicalDT
 physicalBagToDT 0 b = (b, bottom, bottom)
@@ -61,9 +61,6 @@ physicalToLogicalState (assignments, p) = (\slpn -> case slpn of
 
 physicalDTtoState :: LPN -> PhysicalDT -> PhysicalState
 physicalDTtoState lpn dt = (bottom, base (lpn, dt))
-
-physicalBagToState :: LPN -> Int -> PhysicalBag -> PhysicalState
-physicalBagToState lpn bagId = physicalDTtoState lpn . physicalBagToDT bagId
 
 logicalDTtoState :: LogicalDTId -> LogicalDT -> LogicalState
 logicalDTtoState dtId dt = base (dtId, dt)

@@ -9,6 +9,7 @@ module Semilattice (
     -- | Primitive join semilattices 
     Increasing(..),
     propagateIncrease,
+    propagateIncrease2,
     Decreasing(..),
     propagateDecrease,
     Same(..),
@@ -17,7 +18,10 @@ module Semilattice (
     propagateGrowth,
     Shrinking(..),
     propagateShrink,
-    -- | Higher-order join semilattices
+    -- | Higher-kinded join semilattices
+    propagateMap,
+    propagateMapEntry,
+    propagateListElement
 ) where
 
 import Prelude hiding (id, (.))
@@ -29,6 +33,7 @@ import Control.Category
 import Data.Proxy
 import Data.Functor.Identity
 import Data.Void
+import Data.Maybe
 
 class JoinSemilattice s where
     -- a \/ (b  \/ c) = (a \/ n) \/ c - associativity
@@ -306,12 +311,24 @@ instance (Ord k, BoundedJoinSemilattice v) => BoundedJoinSemilattice (M.Map k v)
 instance (Ord k, BoundedJoinSemilattice v) => Based (M.Map k v) (k, v) where
     base (k, v) = M.singleton k v
 
+propagateMap :: (Ord k, Ord k', JoinSemilattice v) => (v -> v -> v) -- | must be monotone
+    -> (k -> k') -> M.Map k v -> M.Map k' v
+propagateMap = M.mapKeysWith
+
+propagateMapEntry :: (Ord k, BoundedJoinSemilattice v) => k -> M.Map k v -> v
+propagateMapEntry k m = fromMaybe bottom $ M.lookup k m
+
 --
 instance JoinSemilattice a => JoinSemilattice [a] where
     l1 \/ l2 = foldl1 (\/) <$> transpose [l1, l2]
 
 instance BoundedJoinSemilattice a => BoundedJoinSemilattice [a] where
     bottom = mempty
+
+propagateListElement :: BoundedJoinSemilattice a => Int -> [a] -> a
+propagateListElement i l 
+  | i >= length l = bottom
+  | otherwise = l !! i
 
 -- 
 instance (JoinSemilattice a, JoinSemilattice b) => JoinSemilattice (a, b) where
