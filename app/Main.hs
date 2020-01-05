@@ -1,6 +1,6 @@
 module Main where
 
-import JoinSemilattice
+import Semilattice
 import Data.Map as M
 import Data.Map.Append
 
@@ -11,7 +11,7 @@ type LPN = String
 type LogicalDTId = String
 type BagId = Int
 
--- join semilattices
+-- bounded join semilattices
 type PhysicalBag = AppendMap (PickId, SkuId) (Increasing Qty)
 
 type PhysicalDT = (PhysicalBag, PhysicalBag, PhysicalBag)

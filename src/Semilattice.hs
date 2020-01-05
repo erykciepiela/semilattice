@@ -1,4 +1,4 @@
-module JoinSemilattice (
+module Semilattice (
     BoundedJoinSemilattice(..),
     (+>),
     (<+),
