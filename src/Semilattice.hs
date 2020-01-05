@@ -156,7 +156,15 @@ instance (Ord a, Bounded a) => Based (Increasing a) a where
     base = Increasing
 
 propagateIncrease :: (a -> b) -> Increasing a -> Increasing b
-propagateIncrease f (Increasing a) = Increasing (f a) -- f must be monotone
+propagateIncrease f (Increasing a) = Increasing (f a) -- f must be monotone!
+-- if f is counter-monotine - inverse
+-- f (Inc 3 \/ Inc 5) = f (Inc 3) \/ f (Inc 5)
+-- f (Inc 5) = (Inc -3) \/ (Inc -5)
+-- Inc -5 = Inc -3
+-- if f is not monotine - (+1)
+-- f (Inc 3 \/ Inc 5) = f (Inc 3) \/ f (Inc 5)
+-- f (Inc 5) = (Inc 4) \/ (Inc 6)
+-- Inc 6 = Inc 6
 
 -- | If @a@ is Ord and Bounded and we know it decreases in time.
 -- | Equivalent to Min.
@@ -180,7 +188,15 @@ instance (Ord a, Bounded a) => Based (Decreasing a) a where
     base = Decreasing
 
 propagateDecrease :: (a -> b) -> Decreasing a -> Decreasing b
-propagateDecrease f (Decreasing a) = Decreasing (f a) -- f must be counter-monotone
+propagateDecrease f (Decreasing a) = Decreasing (f a) -- f must be monotone!
+-- if f is counter-monotine - inverse
+-- f (Dec 3 \/ Dec 5) = f (Dec 3) \/ f (Dec 5)
+-- f (Dec 3) = (Dec -3) \/ (Dec -5)
+-- Dec -3 = Dec -5
+-- if f is not monotine - (+1)
+-- f (Dec 3 \/ Dec 5) = f (Dec 3) \/ f (Dec 5)
+-- f (Dec 3) = (Dec 4) \/ (Dec 6)
+-- Dec 4 = Dec 4
 
 -- | If @a@ is Ord and we know we get more of them over time.
 newtype Growing a = Growing { growing :: Set a }
