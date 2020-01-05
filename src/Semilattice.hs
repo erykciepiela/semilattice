@@ -18,7 +18,6 @@ module Semilattice (
     Shrinking(..),
     propagateShrink,
     -- | Higher-order join semilattices
-    List,
 ) where
 
 import Prelude hiding (id, (.))
@@ -285,21 +284,10 @@ instance (Ord k, BoundedJoinSemilattice v) => Based (M.Map k v) (k, v) where
     base (k, v) = M.singleton k v
 
 --
-newtype List a = List { list :: [a] } 
+instance JoinSemilattice a => JoinSemilattice [a] where
+    l1 \/ l2 = foldl1 (\/) <$> transpose [l1, l2]
 
-deriving instance Show a => Show (List a)
-deriving instance Eq a => Eq (List a)
-
-instance Semigroup a => Semigroup (List a) where
-    l1 <> l2 = List $ foldl1 (<>) <$> transpose [list l1, list l2]
-
-instance Monoid a => Monoid (List a) where
-    mempty = List $ repeat mempty
-
-instance JoinSemilattice a => JoinSemilattice (List a) where
-    l1 \/ l2 = List $ foldl1 (\/) <$> transpose [list l1, list l2]
-
-instance BoundedJoinSemilattice a => BoundedJoinSemilattice (List a) where
+instance BoundedJoinSemilattice a => BoundedJoinSemilattice [a] where
     bottom = mempty
 
 -- 
