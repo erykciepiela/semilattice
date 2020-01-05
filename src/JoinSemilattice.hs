@@ -33,10 +33,15 @@ import Data.Functor.Identity
 import Data.Void
 
 class (Eq s, Semigroup s) => JoinSemilattice s where
-    -- a <> b = b <> a - commutativity, saves us from out of order messages problem
-    -- a <> a = a - idempotence, saves us from exactly-once delivery guarantee problem
+    -- a \/ (b  \/ c) = (a \/ n) \/ c - associativity
+    -- a \/ b = b \/ a - commutativity, saves us from out of order messages problem
+    -- a \/ a = a \/ idempotence, saves us from exactly-once delivery guarantee problem
+    (\/) :: s -> s -> s
+    (\/) = (<>)
 
 class (Monoid s, JoinSemilattice s) => BoundedJoinSemilattice s where
+    bottom :: s
+    bottom = mempty
 
 bjsconcat :: (Ord s, BoundedJoinSemilattice s) => S.Set s -> s
 bjsconcat = S.foldr (<>) mempty
@@ -49,7 +54,7 @@ bjsconcat'' :: (Foldable f, BoundedJoinSemilattice s, BoundedJoinSemilattice (f 
 bjsconcat'' = Prelude.foldr (<>) mempty
 
 (+>) :: BoundedJoinSemilattice s => s -> s -> Bool
-s1 +> s2 = s1 <> s2 == s1
+s1 +> s2 = s1 \/ s2 == s1
 
 (+>>) :: BoundedJoinSemilattice s => s -> s -> Bool
 s1 +>> s2 = s1 +> s2 && s1 /= s2
