@@ -5,6 +5,7 @@ module Semilattice (
     (<<+),
     (+>>),
     (<+>),
+    join,
     Based(..),
     -- | Primitive join semilattices 
     Increasing(..),
@@ -45,15 +46,15 @@ class JoinSemilattice s where
 class JoinSemilattice s => BoundedJoinSemilattice s where
     bottom :: s
 
-bjsconcat :: (Ord s, BoundedJoinSemilattice s) => S.Set s -> s
-bjsconcat = S.foldr (\/) bottom
+bjsconcatS :: (Ord s, BoundedJoinSemilattice s) => S.Set s -> s
+bjsconcatS = S.foldr (\/) bottom
 
-bjsconcat' :: (Foldable f, BoundedJoinSemilattice s) => f s -> s
-bjsconcat' = Prelude.foldr (\/) bottom
+join :: (Foldable f, BoundedJoinSemilattice s) => f s -> s
+join = Prelude.foldr (\/) bottom
 -- if f s is bounded join semilattice then it's a propagator
 
-bjsconcat'' :: (Foldable f, BoundedJoinSemilattice s, BoundedJoinSemilattice (f s)) => f s -> s
-bjsconcat'' = Prelude.foldr (\/) bottom
+join'' :: (Foldable f, BoundedJoinSemilattice s, BoundedJoinSemilattice (f s)) => f s -> s
+join'' = Prelude.foldr (\/) bottom
 
 (+>) :: (Eq s, BoundedJoinSemilattice s) => s -> s -> Bool
 s1 +> s2 = s1 \/ s2 == s1
