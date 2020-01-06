@@ -36,6 +36,7 @@ import Data.Functor.Identity
 import Data.Void
 import Data.Maybe
 import Data.IORef
+import Control.Comonad
 
 class JoinSemilattice s where
     -- a \/ (b  \/ c) = (a \/ n) \/ c - associativity
@@ -217,6 +218,7 @@ newtype Growing a = Growing { growing :: Set a }
 
 deriving instance Eq a => Eq (Growing a)
 deriving instance Show a => Show (Growing a)
+deriving instance Ord a => Ord (Growing a)
 
 instance Ord a => Semigroup (Growing a) where
     s1 <> s2 = Growing $ S.union (growing s1) (growing s2)
@@ -379,34 +381,33 @@ propagateMono f as =  bjsconcat $ f <$> as
 propagateHomo :: (BoundedJoinSemilattice a, BoundedJoinSemilattice b, Foldable t) => (a -> b) -> t a -> b
 propagateHomo f as = f $ bjsconcat as
 
+--
 
--- = h (bjsconcat (a1 \/ a2 \/ ... \/ an))
+data E s where
+    E :: (Ord s, BoundedJoinSemilattice s) => Growing s -> E s
 
--- data Homo a b = Homo {
---     hbottom :: b,
---     hbjsconcat :: a -> b -> b
--- }
+join :: (BoundedJoinSemilattice s) => Growing s -> s
+join (Growing ss) = bjsconcat ss
 
--- instance Functor (Homo a) where
---     fmap f h = Homo (f (hbottom h))
-
--- newHomo :: (BoundedJoinSemilattice s) => Homo s s
--- newHomo = Homo bottom (\/)
-
--- readHomo :: Homo a b -> b
--- readHomo = hbottom
-
--- writeHomo :: a -> Homo a b -> Homo a b
--- writeHomo a (Homo b j) = Homo (j a b) j
+all :: (BoundedJoinSemilattice s) => Growing s -> S.Set s
+all (Growing ss) = ss
 
 
--- foo :: (BoundedJoinSemilattice s) => Homo s s
--- foo = Homo bottom (\/)
+instance Eq (E s) where
+    E g1 == E g2 = g1 == g2
 
--- startHomo :: (BoundedJoinSemilattice a, BoundedJoinSemilattice b) => (a -> b) -> Homo a b
--- startHomo f = Homo bottom f
+instance Ord (E s) where
+    compare (E g1) (E g2) = compare g1 g2
 
--- createHomo :: (BoundedJoinSemilattice a, BoundedJoinSemilattice b) => (a -> b) -> IO (a -> b, IORef b)
--- createHomo homo = (,) <$> pure homo <*> newIORef bottom
+instance Ord s => JoinSemilattice (E s) where
+    (E g1) \/ (E g2) = E $ g1 \/ g2
 
--- consumeHome :: BoundedJoinSemilattice a => a -> (a -> b, IORef b) -> (a -> b, IORef b )
+instance (BoundedJoinSemilattice s, Ord s) => BoundedJoinSemilattice (E s) where
+    bottom = E bottom
+
+instance Functor E where
+    fmap = undefined 
+
+instance Comonad E where
+    extract (E (Growing ss)) = bjsconcat ss
+    duplicate (E (Growing ss)) = E $ Growing $ S.map (\s -> E (Growing (S.singleton s))) ss

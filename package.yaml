@@ -35,6 +35,7 @@ dependencies:
 - containers -any
 - appendmap -any
 - stm -any
+- comonad -any
 
 library:
   source-dirs: src
