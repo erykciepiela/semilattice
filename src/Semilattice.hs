@@ -34,6 +34,7 @@ import Data.Proxy
 import Data.Functor.Identity
 import Data.Void
 import Data.Maybe
+import Data.IORef
 
 class JoinSemilattice s where
     -- a \/ (b  \/ c) = (a \/ n) \/ c - associativity
@@ -315,7 +316,7 @@ propagateMap :: (Ord k, Ord k', JoinSemilattice v) => (v -> v -> v) -- | must be
     -> (k -> k') -> M.Map k v -> M.Map k' v
 propagateMap = M.mapKeysWith
 
-propagateMapEntry :: (Ord k, BoundedJoinSemilattice v) => k -> M.Map k v -> v
+propagateMapEntry :: (Ord k, BoundedJoinSemilattice s) => k -> M.Map k s -> s
 propagateMapEntry k m = fromMaybe bottom $ M.lookup k m
 
 --
@@ -352,3 +353,22 @@ instance (BoundedJoinSemilattice a, BoundedJoinSemilattice b, BoundedJoinSemilat
     bottom = (bottom, bottom, bottom, bottom)
 
 -- and so on...
+
+-- | More on homomorphisms
+-- @f@ is homomorphisms if and only if @f (x \/ y) = f x \/ f y@
+-- Let's assume we deal with a stream of arriving @a@s: a1, a2, ..., an.
+-- The order of arrival does not have to reflect occurrence order.
+-- Arrived values can be duplicated.
+-- f (a1 \/ a2 \/ ... \/ an) = f a1 \/ f a2 \/ ... \/ f an
+-- f :: a -> b
+-- a -> (b -> b)
+
+-- data Homo a b = Homo b (a -> b)
+
+-- startHomo :: (BoundedJoinSemilattice a, BoundedJoinSemilattice b) => (a -> b) -> Homo a b
+-- startHomo f = Homo bottom f
+
+-- createHomo :: (BoundedJoinSemilattice a, BoundedJoinSemilattice b) => (a -> b) -> IO (a -> b, IORef b)
+-- createHomo homo = (,) <$> pure homo <*> newIORef bottom
+
+-- consumeHome :: BoundedJoinSemilattice a => a -> (a -> b, IORef b) -> (a -> b, IORef b )
