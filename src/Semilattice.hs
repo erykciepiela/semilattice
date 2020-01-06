@@ -5,9 +5,9 @@ module Semilattice (
     (<<+),
     (+>>),
     (<+>),
-    join,
+    bjsconcat,
     Based(..),
-    -- | Primitive join semilattices 
+    -- | Primitive bjsconcat semilattices 
     Increasing(..),
     propagateIncrease,
     propagateIncrease2,
@@ -19,7 +19,7 @@ module Semilattice (
     propagateGrowth,
     Shrinking(..),
     propagateShrink,
-    -- | Higher-kinded join semilattices
+    -- | Higher-kinded bjsconcat semilattices
     propagateMap,
     propagateMapEntry,
     propagateListElement
@@ -49,12 +49,12 @@ class JoinSemilattice s => BoundedJoinSemilattice s where
 bjsconcatS :: (Ord s, BoundedJoinSemilattice s) => S.Set s -> s
 bjsconcatS = S.foldr (\/) bottom
 
-join :: (Foldable f, BoundedJoinSemilattice s) => f s -> s
-join = Prelude.foldr (\/) bottom
--- if f s is bounded join semilattice then it's a propagator
+bjsconcat :: (Foldable f, BoundedJoinSemilattice s) => f s -> s
+bjsconcat = Prelude.foldr (\/) bottom
+-- if f s is bounded bjsconcat semilattice then it's a propagator
 
-join'' :: (Foldable f, BoundedJoinSemilattice s, BoundedJoinSemilattice (f s)) => f s -> s
-join'' = Prelude.foldr (\/) bottom
+bjsconcat'' :: (Foldable f, BoundedJoinSemilattice s, BoundedJoinSemilattice (f s)) => f s -> s
+bjsconcat'' = Prelude.foldr (\/) bottom
 
 (+>) :: (Eq s, BoundedJoinSemilattice s) => s -> s -> Bool
 s1 +> s2 = s1 \/ s2 == s1
@@ -203,11 +203,11 @@ instance (Ord a, Bounded a) => Based (Decreasing a) a where
 
 propagateDecrease :: (a -> b) -> Decreasing a -> Decreasing b
 propagateDecrease f (Decreasing a) = Decreasing (f a) -- f must be monotone!
--- if f is counter-monotine - inverse
+-- if f is counter-monotone (e.g. inverse) then propagateDecrease is not homomorphic
 -- f (Dec 3 \/ Dec 5) = f (Dec 3) \/ f (Dec 5)
 -- f (Dec 3) = (Dec -3) \/ (Dec -5)
 -- Dec -3 = Dec -5
--- if f is not monotine - (+1)
+-- if f is not monotine (e.g.(+1)) then then propagateDecrease is homomorphic
 -- f (Dec 3 \/ Dec 5) = f (Dec 3) \/ f (Dec 5)
 -- f (Dec 3) = (Dec 4) \/ (Dec 6)
 -- Dec 4 = Dec 4
@@ -294,7 +294,7 @@ propagateSame f Unknown = Unknown
 propagateSame f (Unambiguous a) = Unambiguous (f a)
 propagateSame f (Ambiguous as) = Ambiguous (S.map f as)
 
--- higher kinded join semilattices
+-- higher kinded bjsconcat semilattices
 
 --
 instance JoinSemilattice a => JoinSemilattice (Identity a) where
@@ -357,6 +357,9 @@ instance (BoundedJoinSemilattice a, BoundedJoinSemilattice b, BoundedJoinSemilat
 
 -- | More on homomorphisms
 -- @f@ is homomorphisms if and only if @f (x \/ y) = f x \/ f y@
+-- if @f@ is homomorphism then @f@ is monotone
+-- x \/ y +> x and f (x \/ y) = f x \/ f y +> f x
+-- x \/ y +> y and f (x \/ y) = f x \/ f y +> f y
 -- Let's assume we deal with a stream of arriving @a@s: a1, a2, ..., an.
 -- The order of arrival does not have to reflect occurrence order.
 -- Arrived values can be duplicated.
@@ -364,9 +367,24 @@ instance (BoundedJoinSemilattice a, BoundedJoinSemilattice b, BoundedJoinSemilat
 -- f :: a -> b
 -- a -> (b -> b)
 
+propagateMono :: (BoundedJoinSemilattice a, BoundedJoinSemilattice b, Foldable t, Functor t) => (a -> b) -> t a -> b
+propagateMono f as =  bjsconcat $ f <$> as
+-- 
+-- if f is homomorphism:
+-- propagateMono f [a1, a2]
+-- = bjsconcat $ [f a1, f a2]
+-- = f a1 \/ f a2
+-- = f (a1 \/ a2) -- as f is monomorphism
+-- = f (bjsconcat [a1, a2])
+propagateHomo :: (BoundedJoinSemilattice a, BoundedJoinSemilattice b, Foldable t) => (a -> b) -> t a -> b
+propagateHomo f as = f $ bjsconcat as
+
+
+-- = h (bjsconcat (a1 \/ a2 \/ ... \/ an))
+
 -- data Homo a b = Homo {
 --     hbottom :: b,
---     hjoin :: a -> b -> b
+--     hbjsconcat :: a -> b -> b
 -- }
 
 -- instance Functor (Homo a) where

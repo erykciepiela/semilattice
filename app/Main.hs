@@ -40,7 +40,7 @@ physicalToLogicalState (assignments, p) = (\slpn -> case slpn of
     Unknown -> bottom
     Ambiguous _ -> bottom 
     (Unambiguous lpn) -> fromMaybe bottom (M.lookup lpn p)) <$> assignments
--- is this homorphism?
+-- this is not homorphism, it's merely monotonic
 
 dtAssignment :: LogicalDTId -> LPN -> DTAssignment
 dtAssignment dtid lpn = base (dtid, Unambiguous lpn)
@@ -51,8 +51,8 @@ dtAssignmentToPhysicalState a = (a, bottom)
 --
 main :: IO ()
 main = do
-    let actual = join [dtAssignment' "1" "123", physicalPick "123" 0 "apple" 3, physicalPick "123" 1 "banana" 4, physicalPick "123" 0 "coconut" 1, physicalPick "123" 0 "coconut" 2, physicalPick "123" 2 "donut" 5, physicalPick "123" 2 "donut" 5, dtAssignment' "2" "444", physicalPick "444" 0 "cucumber" 7]
-    let expected = join [logicalPick "1" 0 "apple" 3, logicalPick "1" 1 "banana" 4]
+    let actual = bjsconcat [dtAssignment' "1" "123", physicalPick "123" 0 "apple" 3, physicalPick "123" 1 "banana" 4, physicalPick "123" 0 "coconut" 1, physicalPick "123" 0 "coconut" 2, physicalPick "123" 2 "donut" 5, physicalPick "123" 2 "donut" 5, dtAssignment' "2" "444", physicalPick "444" 0 "cucumber" 7]
+    let expected = bjsconcat [logicalPick "1" 0 "apple" 3, logicalPick "1" 1 "banana" 4]
     print $ actual +> expected -- True
     print $ actual <+ expected -- False 
         where
