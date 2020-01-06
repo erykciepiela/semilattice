@@ -10,7 +10,7 @@ type LPN = String
 type LogicalDTId = String
 type BagId = Int
 
--- bounded join semilattices
+-- bounded join semilattices - objects
 type PhysicalBag = Map (PickId, SkuId) (Increasing Qty)
 
 type PhysicalDT = (PhysicalBag, PhysicalBag, PhysicalBag)
@@ -27,7 +27,7 @@ type LogicalDT = (LogicalBag, LogicalBag, LogicalBag)
 
 type LogicalState = Map LogicalDTId LogicalDT
 
--- homomorphisms
+-- homomorphisms - morphisms
 physicalBag :: PickId -> SkuId -> Qty -> PhysicalBag
 physicalBag pickId skuId qty = base ((pickId, skuId), Increasing qty)
 

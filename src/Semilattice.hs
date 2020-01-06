@@ -363,7 +363,26 @@ instance (BoundedJoinSemilattice a, BoundedJoinSemilattice b, BoundedJoinSemilat
 -- f :: a -> b
 -- a -> (b -> b)
 
--- data Homo a b = Homo b (a -> b)
+-- data Homo a b = Homo {
+--     hbottom :: b,
+--     hjoin :: a -> b -> b
+-- }
+
+-- instance Functor (Homo a) where
+--     fmap f h = Homo (f (hbottom h))
+
+-- newHomo :: (BoundedJoinSemilattice s) => Homo s s
+-- newHomo = Homo bottom (\/)
+
+-- readHomo :: Homo a b -> b
+-- readHomo = hbottom
+
+-- writeHomo :: a -> Homo a b -> Homo a b
+-- writeHomo a (Homo b j) = Homo (j a b) j
+
+
+-- foo :: (BoundedJoinSemilattice s) => Homo s s
+-- foo = Homo bottom (\/)
 
 -- startHomo :: (BoundedJoinSemilattice a, BoundedJoinSemilattice b) => (a -> b) -> Homo a b
 -- startHomo f = Homo bottom f
