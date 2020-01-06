@@ -27,22 +27,23 @@ type LogicalState = Map LogicalDTId DT
 bag :: SkuId -> Qty -> Bag
 bag skuId qty = base (skuId, Increasing qty)
 
-dtAssignment :: LogicalDTId -> LPN -> DTAssignment
-dtAssignment dtid lpn = base (dtid, Unambiguous lpn)
-
 bagToDT :: Int -> Bag -> DT
 bagToDT 0 b = (b, bottom, bottom)
 bagToDT 1 b = (bottom, b, bottom)
 bagToDT 2 b = (bottom, bottom, b)
+
+dtToPhysicalState :: LPN -> DT -> PhysicalState
+dtToPhysicalState lpn dt = (bottom, base (lpn, dt))
 
 physicalToLogicalState :: PhysicalState -> LogicalState
 physicalToLogicalState (assignments, p) = (\slpn -> case slpn of
     Unknown -> bottom
     Ambiguous _ -> bottom 
     (Unambiguous lpn) -> fromMaybe bottom (M.lookup lpn p)) <$> assignments
+-- is this homorphism?
 
-dtToPhysicalState :: LPN -> DT -> PhysicalState
-dtToPhysicalState lpn dt = (bottom, base (lpn, dt))
+dtAssignment :: LogicalDTId -> LPN -> DTAssignment
+dtAssignment dtid lpn = base (dtid, Unambiguous lpn)
 
 dtAssignmentToPhysicalState :: DTAssignment -> PhysicalState
 dtAssignmentToPhysicalState a = (a, bottom)
