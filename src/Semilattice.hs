@@ -386,6 +386,12 @@ propagateHomo f as = f $ bjsconcat as
 data E s where
     E :: (Ord s, BoundedJoinSemilattice s) => Growing s -> E s
 
+pHomo :: (BoundedJoinSemilattice a) => (a -> b) -> Growing a -> b
+pHomo f g = f $ join g
+
+pMono :: (BoundedJoinSemilattice a, BoundedJoinSemilattice b, Ord b) => (a -> b) -> Growing a -> b
+pMono f g = bjsconcat $ S.map f (Semilattice.all g)
+
 join :: (BoundedJoinSemilattice s) => Growing s -> s
 join (Growing ss) = bjsconcat ss
 
@@ -393,21 +399,21 @@ all :: (BoundedJoinSemilattice s) => Growing s -> S.Set s
 all (Growing ss) = ss
 
 
-instance Eq (E s) where
-    E g1 == E g2 = g1 == g2
+-- instance Eq (E s) where
+--     E g1 == E g2 = g1 == g2
 
-instance Ord (E s) where
-    compare (E g1) (E g2) = compare g1 g2
+-- instance Ord (E s) where
+--     compare (E g1) (E g2) = compare g1 g2
 
-instance Ord s => JoinSemilattice (E s) where
-    (E g1) \/ (E g2) = E $ g1 \/ g2
+-- instance Ord s => JoinSemilattice (E s) where
+--     (E g1) \/ (E g2) = E $ g1 \/ g2
 
-instance (BoundedJoinSemilattice s, Ord s) => BoundedJoinSemilattice (E s) where
-    bottom = E bottom
+-- instance (BoundedJoinSemilattice s, Ord s) => BoundedJoinSemilattice (E s) where
+--     bottom = E bottom
 
-instance Functor E where
-    fmap = undefined 
+-- instance Functor E where
+--     fmap = undefined 
 
-instance Comonad E where
-    extract (E (Growing ss)) = bjsconcat ss
-    duplicate (E (Growing ss)) = E $ Growing $ S.map (\s -> E (Growing (S.singleton s))) ss
+-- instance Comonad E where
+--     extract (E (Growing ss)) = bjsconcat ss
+--     duplicate (E (Growing ss)) = E $ Growing $ S.map (\s -> E (Growing (S.singleton s))) ss
