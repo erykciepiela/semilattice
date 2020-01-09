@@ -9,6 +9,13 @@ type Qty = Int
 type LPN = String
 type LogicalDTId = String
 type BagId = Int
+type ShipmentId = String
+type VanId = String
+type FrameId = String
+type PositionInFrame = Int
+type PositionInVan = Int
+type PositionInShipment = Int
+-- type FrameId = String
 
 -- bounded join semilattices - objects
 type Bag = Map SkuId (Increasing Qty)
@@ -19,11 +26,27 @@ type DTs = Map LPN DT
 
 type DTAssignment = Map LogicalDTId (Same LPN)
 
+type Frame = Map PositionInFrame (Same LPN)
+
+type Van = Map PositionInVan (Same LPN, Frame)
+
+type Shipment = Map PositionInShipment (Same LPN, Van)
+
 type PhysicalState = (DTAssignment, DTs)
 
 type LogicalState = Map LogicalDTId DT
 
 -- homomorphisms - morphisms
+dtAssign :: PositionInShipment -> PositionInVan -> PositionInFrame -> LPN -> Shipment
+dtAssign pishipment pivan piframe dtlpn = base (pishipment, (bottom, base (pivan, (bottom,  base (piframe, Unambiguous dtlpn)))))
+
+frameAssign :: PositionInShipment -> PositionInVan -> LPN -> Shipment
+frameAssign pishipment pivan frameLpn = base (pishipment, (bottom, base (pivan, (Unambiguous frameLpn, bottom))))
+
+vanAssign :: PositionInShipment -> LPN -> Shipment
+vanAssign pishipment vanLpn = base (pishipment, (Unambiguous vanLpn, bottom))
+
+--
 bag :: SkuId -> Qty -> Bag
 bag skuId qty = base (skuId, Increasing qty)
 
