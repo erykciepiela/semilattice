@@ -22,29 +22,55 @@ type Bag = Map SkuId (Increasing Qty)
 
 type DT = (Bag, Bag, Bag)
 
-type DTs = Map LPN DT
-
-type DTAssignment = Map LogicalDTId (Same LPN)
-
-type Frame = Map PositionInFrame (Same LPN)
+type Frame = Map PositionInFrame (Same LPN, DT)
 
 type Van = Map PositionInVan (Same LPN, Frame)
 
 type Shipment = Map PositionInShipment (Same LPN, Van)
 
+type FrameGoal = Map PositionInFrame DT
+type VanGoal = Map PositionInVan FrameGoal
+type ShipmentGoal = Map PositionInShipment VanGoal
+
+type DTs = Map LPN DT
+
+type DTAssignment = Map LogicalDTId (Same LPN)
+
 type PhysicalState = (DTAssignment, DTs)
 
 type LogicalState = Map LogicalDTId DT
 
+-- functions
+foo :: Frame -> Map LPN PositionInFrame
+foo = undefined
+
 -- homomorphisms - morphisms
-dtAssign :: PositionInShipment -> PositionInVan -> PositionInFrame -> LPN -> Shipment
-dtAssign pishipment pivan piframe dtlpn = base (pishipment, (bottom, base (pivan, (bottom,  base (piframe, Unambiguous dtlpn)))))
+pick :: PositionInShipment -> PositionInVan -> PositionInFrame -> LPN -> Int -> SkuId -> Qty -> Shipment
+pick pishipment pivan piframe dtlpn 0 skuId qty = base (pishipment, (bottom, base (pivan, (bottom, base (piframe, (Unambiguous dtlpn, (base (skuId, Increasing qty), bottom, bottom)))))))
+pick pishipment pivan piframe dtlpn 1 skuId qty = base (pishipment, (bottom, base (pivan, (bottom, base (piframe, (Unambiguous dtlpn, (bottom, base (skuId, Increasing qty), bottom)))))))
+pick pishipment pivan piframe dtlpn 2 skuId qty = base (pishipment, (bottom, base (pivan, (bottom, base (piframe, (Unambiguous dtlpn, (bottom, bottom, base (skuId, Increasing qty))))))))
 
 frameAssign :: PositionInShipment -> PositionInVan -> LPN -> Shipment
 frameAssign pishipment pivan frameLpn = base (pishipment, (bottom, base (pivan, (Unambiguous frameLpn, bottom))))
 
 vanAssign :: PositionInShipment -> LPN -> Shipment
 vanAssign pishipment vanLpn = base (pishipment, (Unambiguous vanLpn, bottom))
+
+frameToGoal :: Frame -> FrameGoal
+frameToGoal = fmap snd
+
+vanToGoal :: Van -> VanGoal
+vanToGoal = fmap $ frameToGoal . snd
+
+shipmentToGoal :: Shipment -> ShipmentGoal
+shipmentToGoal = fmap $ vanToGoal . snd
+
+pickGoal :: PositionInShipment -> PositionInVan -> PositionInFrame -> Int -> SkuId -> Qty -> ShipmentGoal
+pickGoal pishipment pivan piframe 0 skuId qty = base (pishipment, base (pivan, base (piframe, (base (skuId, Increasing qty), bottom, bottom))))
+pickGoal pishipment pivan piframe 1 skuId qty = base (pishipment, base (pivan, base (piframe, (bottom, base (skuId, Increasing qty), bottom))))
+pickGoal pishipment pivan piframe 2 skuId qty = base (pishipment, base (pivan, base (piframe, (bottom, bottom, base (skuId, Increasing qty)))))
+
+
 
 --
 bag :: SkuId -> Qty -> Bag
