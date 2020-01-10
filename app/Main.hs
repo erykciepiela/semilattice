@@ -4,6 +4,7 @@ import Semilattice
 import Data.Map as M
 import Data.Maybe
 import Data.String
+import Control.Monad
 import Data.List as L
 
 type SkuId = String
@@ -91,25 +92,26 @@ permuteDuplicates duplicates as = L.permutations $ duplicate duplicates (mconcat
 
 main :: IO ()
 main = do
+    let expected = bjsconcat [pickGoal 0 0 0 0 "apple" 3, pickGoal 0 0 0 1 "banana" 4, pickGoal 0 0 0 0 "coconut" 2, pickGoal 0 0 0 2 "donut" 5, pickGoal 0 0 1 0 "cucumber" 7]
     let pickZoneSends = [picked 0 0 0 "DT1" 0 "apple" 3, picked 0 0 0 "DT1" 1 "banana" 4, picked 0 0 0 "DT1" 0 "coconut" 1, picked 0 0 0 "DT1" 0 "coconut" 2, picked 0 0 0 "DT1" 2 "donut" 5, picked 0 0 1 "444" 0 "cucumber" 7]
     let frameLoadingZoneSends = [frameLoaded 0 0 "F1"]
     let vanLoadingZoneSends = [vanLoaded 0 "V1"]
-    let expected = bjsconcat [pickGoal 0 0 0 0 "apple" 3, pickGoal 0 0 0 1 "banana" 4, pickGoal 0 0 0 0 "coconut" 2, pickGoal 0 0 0 2 "donut" 5, pickGoal 0 0 1 0 "cucumber" 7]
     
-    let pds = permuteDuplicates 4 [pickZoneSends, frameLoadingZoneSends, vanLoadingZoneSends]
-    let actual = bjsconcat $ pds !! 0
-    let actuallyPicked = pickedShipment actual
-    let actuallyFrameloaded = frameloadedShipment actual
-    let actuallyVanloaded = vanloadedShipment actual
-    print $ actuallyPicked <+> expected -- True
-    print $ actuallyPicked +> expected -- True
-    print $ actuallyPicked <+ expected -- True
-    print $ actuallyFrameloaded <+> expected -- True
-    print $ actuallyFrameloaded +> expected -- True
-    print $ actuallyFrameloaded <+ expected -- True
-    print $ actuallyVanloaded <+> expected -- True
-    print $ actuallyVanloaded +> expected -- True
-    print $ actuallyVanloaded <+ expected -- True
-    print actuallyFrameloaded
-    print actuallyVanloaded
-    print actual
+    let phoenixReceivesPermutations = L.take 10 $ permuteDuplicates 4 [pickZoneSends, frameLoadingZoneSends, vanLoadingZoneSends]
+    forM_ phoenixReceivesPermutations $ \phoenixReceives -> do
+        let actual = bjsconcat phoenixReceives
+        let actuallyPicked = pickedShipment actual
+        let actuallyFrameloaded = frameloadedShipment actual
+        let actuallyVanloaded = vanloadedShipment actual
+        print $ actuallyPicked <+> expected -- True
+        print $ actuallyPicked +> expected -- True
+        print $ actuallyPicked <+ expected -- True
+        print $ actuallyFrameloaded <+> expected -- True
+        print $ actuallyFrameloaded +> expected -- True
+        print $ actuallyFrameloaded <+ expected -- True
+        print $ actuallyVanloaded <+> expected -- True
+        print $ actuallyVanloaded +> expected -- True
+        print $ actuallyVanloaded <+ expected -- True
+        -- print actuallyFrameloaded
+        -- print actuallyVanloaded
+        -- print actual
