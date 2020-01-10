@@ -8,7 +8,9 @@ module Semilattice (
     (<+>),
     bjsconcat,
     bjsscan,
-    isAscending,
+    ascends,
+    ascendsTowards,
+    ascendsTo,    
     isDescending,
     Based(..),
     -- | Primitive bjsconcat semilattices 
@@ -33,7 +35,7 @@ import Prelude hiding (id, (.))
 import Data.Set as S
 import Data.Semigroup
 import qualified Data.Map as M
-import Data.List
+import Data.List as L
 import Control.Category
 import Data.Proxy
 import Data.Functor.Identity
@@ -81,10 +83,31 @@ s1 <<+ s2 = s1 <+ s2 && s1 /= s2
 (<+>) :: (Eq s, BoundedJoinSemilattice s) => s -> s -> Bool
 s1 <+> s2 = s1 <+ s2 || s1 +> s2
 
-isAscending :: (Eq s, BoundedJoinSemilattice s) => [s] -> Bool
-isAscending [] = True
-isAscending [s] = True
-isAscending (s1:rest@(s2:_)) = s1 <+ s2 && isAscending rest
+ascends :: (Eq s, BoundedJoinSemilattice s) => [s] -> Bool
+ascends ss = let ss' = bjsscan ss in isAscending ss'
+    where
+        isAscending :: (Eq s, BoundedJoinSemilattice s) => [s] -> Bool
+        isAscending [] = True
+        isAscending [s] = True
+        isAscending (s1:rest@(s2:_)) = s1 <+ s2 && isAscending rest
+
+ascendsTowards :: (Eq s, BoundedJoinSemilattice s) => [s] -> s -> Bool
+ascendsTowards [] final = final == bottom
+ascendsTowards ss final = let ss' = bjsscan ss in isAscending ss' && L.all (<+ final) ss'
+    where
+        isAscending :: (Eq s, BoundedJoinSemilattice s) => [s] -> Bool
+        isAscending [] = True
+        isAscending [s] = True
+        isAscending (s1:rest@(s2:_)) = s1 <+ s2 && isAscending rest
+
+ascendsTo :: (Eq s, BoundedJoinSemilattice s) => [s] -> s -> Bool
+ascendsTo [] final = final == bottom
+ascendsTo ss final = let ss' = bjsscan ss in isAscending ss' && L.all (<+ final) ss' && last ss' == final
+    where
+        isAscending :: (Eq s, BoundedJoinSemilattice s) => [s] -> Bool
+        isAscending [] = True
+        isAscending [s] = True
+        isAscending (s1:rest@(s2:_)) = s1 <+ s2 && isAscending rest
 
 isDescending :: (Eq s, BoundedJoinSemilattice s) => [s] -> Bool
 isDescending [] = True
