@@ -28,6 +28,7 @@ default-extensions:
 - GADTs
 - AllowAmbiguousTypes
 - UndecidableInstances
+- OverloadedStrings
 
 dependencies:
 - base >= 4.7 && < 5

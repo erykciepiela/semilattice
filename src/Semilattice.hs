@@ -144,7 +144,9 @@ instance Based (Proxy a) () where
 
 -- | If @a@ is Ord and Bounded and we know it increases in time.
 -- | Equivalent to Max.
-newtype Increasing a = Increasing { increasing :: a }
+newtype Increasing a = Increasing a -- { increasing :: a }
+
+deriving instance Show a => Show (Increasing a)
 
 instance Ord a => Semigroup (Increasing a) where
     (Increasing a) <> (Increasing b) = Increasing (Prelude.max a b)
