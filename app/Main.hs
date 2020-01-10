@@ -97,16 +97,17 @@ main = do
     let vanLoadZoneSends = [vanLoaded 0 "V1"]
     let expected = fromList [(0,("V1",fromList [(0,("F1",fromList [(0,("DT1",fromList [(0,fromList [("apple", 3),("coconut", 2)]),(1,fromList [("banana", 4)]),(2,fromList [("donut", 5)])])),(1,("DT2",fromList [(0,fromList [("cucumber", 7)])]))]))]))]
     
-    let phoenixReceivesPermutations = L.take 10 $ permuteDuplicates 4 [pickZoneSends, frameLoadZoneSends, vanLoadZoneSends]
-    forM_ phoenixReceivesPermutations $ \phoenixReceives -> do
-        let actual = bjsconcat phoenixReceives
-        let actuallyPicked = pickedShipment actual
-        let actuallyFrameloaded = frameloadedShipment actual
-        let actuallyVanloaded = vanloadedShipment actual
-        print $ actual <+> expected -- True
-        print $ actual +> expected -- True
-        print $ actual <+ expected -- True
-        print $ actual == expected -- True
+    let phoenixReceivesPermutations = L.take 1000 $ permuteDuplicates 4 [pickZoneSends, frameLoadZoneSends, vanLoadZoneSends]
+    print $ all (\phoenixReceives -> bjsconcat phoenixReceives == expected) phoenixReceivesPermutations
+    -- forM_ phoenixReceivesPermutations $ \phoenixReceives -> do
+    --     let actual = bjsconcat phoenixReceives
+    --     let actuallyPicked = pickedShipment actual
+    --     let actuallyFrameloaded = frameloadedShipment actual
+    --     let actuallyVanloaded = vanloadedShipment actual
+    --     print $ actual <+> expected -- True
+    --     print $ actual +> expected -- True
+    --     print $ actual <+ expected -- True
+    --     print $ actual == expected -- True
         -- print $ actuallyPicked <+> expected -- True
         -- print $ actuallyPicked +> expected -- True
         -- print $ actuallyPicked <+ expected -- True
