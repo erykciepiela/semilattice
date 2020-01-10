@@ -81,11 +81,15 @@ vanloadedShipment :: Shipment -> ShipmentGoal
 vanloadedShipment = fmap $ \(slpn, g) -> case slpn of Unknown -> bottom; Unambiguous _ -> vanToGoal g; Ambiguous _ -> bottom;
 
 --
-permuteDuplicates :: Int -> [[a]] -> [[a]]
-permuteDuplicates duplicates as = L.permutations $ duplicate duplicates $ mconcat as
+
+test :: (Eq a, BoundedJoinSemilattice a) => Int -> Int -> a -> [a] -> Bool
+test permNo dupNo final as = all (`ascendsTo` final) $ L.take permNo $ permuteDuplicates dupNo as
     where
-        duplicate :: Int -> [a] -> [a]
-        duplicate n as = mconcat $ replicate n as
+        permuteDuplicates :: Int -> [a] -> [[a]]
+        permuteDuplicates duplicates as = L.permutations $ duplicate duplicates as
+            where
+                duplicate :: Int -> [a] -> [a]
+                duplicate n as = mconcat $ replicate n as
 
 main :: IO ()
 main = do
@@ -107,5 +111,4 @@ main = do
                 vanLoaded 0 "V1"
             ]
     let expected = fromList [(0,("V1",fromList [(0,("F1",fromList [(0,("DT1",fromList [(0,fromList [("apple", 3),("coconut", 2)]),(1,fromList [("banana", 4)]),(2,fromList [("donut", 5)])])),(1,("DT2",fromList [(0,fromList [("cucumber", 7)])]))]))]))]
-    let receivedEventsPermutations = L.take 10000 $ permuteDuplicates 4 [vanLoadZoneEvents, frameLoadZoneEvents, pickZoneEvents]
-    print $ all (`ascendsTo` expected) receivedEventsPermutations
+    print $ test 10000 4 expected $ mconcat [vanLoadZoneEvents, frameLoadZoneEvents, pickZoneEvents] -- True
