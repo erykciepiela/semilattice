@@ -41,10 +41,6 @@ type VanGoal = Map PositionInVan FrameGoal
 
 type ShipmentGoal = Map PositionInShipment VanGoal
 
--- functions(Same LPN, 
-foo :: Frame -> Map LPN PositionInFrame
-foo = undefined
-
 -- homomorphisms - morphisms
 bag :: SkuId -> Qty -> Bag
 bag skuId qty = base (skuId, Increasing qty)
@@ -84,11 +80,12 @@ frameloadedShipment = fmap $ frameloadedVan . snd
 vanloadedShipment :: Shipment -> ShipmentGoal
 vanloadedShipment = fmap $ \(slpn, g) -> case slpn of Unknown -> bottom; Unambiguous _ -> vanToGoal g; Ambiguous _ -> bottom;
 
-duplicate :: Int -> [a] -> [a]
-duplicate n as = mconcat $ replicate n as
-
+--
 permuteDuplicates :: Int -> [[a]] -> [[a]]
-permuteDuplicates duplicates as = L.permutations $ duplicate duplicates (mconcat as)
+permuteDuplicates duplicates as = L.permutations $ duplicate duplicates $ mconcat as
+    where
+        duplicate :: Int -> [a] -> [a]
+        duplicate n as = mconcat $ replicate n as
 
 main :: IO ()
 main = do
