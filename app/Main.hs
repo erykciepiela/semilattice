@@ -45,7 +45,7 @@ type PhysicalState = (DTAssignment, DTs)
 
 type LogicalState = Map LogicalDTId DT
 
--- functions
+-- functions(Same LPN, 
 foo :: Frame -> Map LPN PositionInFrame
 foo = undefined
 
@@ -65,19 +65,50 @@ frameToGoal = fmap snd
 vanToGoal :: Van -> VanGoal
 vanToGoal = fmap $ frameToGoal . snd
 
-shipmentToGoal :: Shipment -> ShipmentGoal
-shipmentToGoal = fmap $ vanToGoal . snd
+pickedShipment :: Shipment -> ShipmentGoal
+pickedShipment = fmap $ vanToGoal . snd
 
 pickGoal :: PositionInShipment -> PositionInVan -> PositionInFrame -> PositionInDT -> SkuId -> Qty -> ShipmentGoal
 pickGoal pishipment pivan piframe pidt skuId qty = base (pishipment, base (pivan, base (piframe, base (pidt, base (skuId, Increasing qty)))))
 
+-- is this homomorphism?
+frameloadedVan :: Van -> VanGoal 
+frameloadedVan = fmap $ \(slpn, f) -> case slpn of Unknown -> bottom; Unambiguous _ -> frameToGoal f; Ambiguous _ -> bottom;
+
+frameloadedShipment :: Shipment -> ShipmentGoal
+frameloadedShipment = fmap $ frameloadedVan . snd
+        
+vanloadedShipment :: Shipment -> ShipmentGoal
+vanloadedShipment = fmap $ \(slpn, g) -> case slpn of Unknown -> bottom; Unambiguous _ -> vanToGoal g; Ambiguous _ -> bottom;
+
+
+
+-- van = fmap $ \(slpn, f) -> case slpn of Unknown -> bottom; Unambiguous _ -> frame f; Ambiguous _ -> bottom;
+
+-- van :: Map PositionInVan (Same LPN, Frame) -> Map PositionInVan Frame 
+-- van = fmap $ \(slpn, dt) -> case slpn of Unknown -> bottom; Unambiguous _ -> dt; Ambiguous _ -> bottom;
+
+
+    -- propagateSame (const dt) slpn
+
 main :: IO ()
 main = do
-    let actual = shipmentToGoal $ bjsconcat [pick 0 0 1 "123" 0 "apple" 3, pick 0 0 1 "123" 1 "banana" 4, pick 0 0 1 "123" 0 "coconut" 1, pick 0 0 1 "123" 0 "coconut" 2, pick 0 0 1 "123" 2 "donut" 5, pick 0 0 1  "123" 2 "donut" 5, pick 0 0 2 "444" 0 "cucumber" 7]
+    let actual = bjsconcat [pick 0 0 1 "123" 0 "apple" 3, pick 0 0 1 "123" 1 "banana" 4, pick 0 0 1 "123" 0 "coconut" 1, pick 0 0 1 "123" 0 "coconut" 2, pick 0 0 1 "123" 2 "donut" 5, pick 0 0 1  "123" 2 "donut" 5, pick 0 0 2 "444" 0 "cucumber" 7, frameAssign 0 0 "f1", vanAssign 0 "v1"]
     let expected = bjsconcat [pickGoal 0 0 1 0 "apple" 3, pickGoal 0 0 1 1 "banana" 4, pickGoal 0 0 1 0 "coconut" 2, pickGoal 0 0 1 2 "donut" 5, pickGoal 0 0 2 0 "cucumber" 7]
-    print $ actual <+> expected -- True
-    print $ actual +> expected -- True
-    print $ actual <+ expected -- True
+    let actuallyPicked = pickedShipment actual
+    let actuallyFrameloaded = frameloadedShipment actual
+    let actuallyVanloaded = vanloadedShipment actual
+    print $ actuallyPicked <+> expected -- True
+    print $ actuallyPicked +> expected -- True
+    print $ actuallyPicked <+ expected -- True
+    print $ actuallyFrameloaded <+> expected -- True
+    print $ actuallyFrameloaded +> expected -- True
+    print $ actuallyFrameloaded <+ expected -- True
+    print $ actuallyVanloaded <+> expected -- True
+    print $ actuallyVanloaded +> expected -- True
+    print $ actuallyVanloaded <+ expected -- True
+    print actuallyFrameloaded
+    print actuallyVanloaded
 
 
 --
