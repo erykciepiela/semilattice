@@ -95,7 +95,7 @@ main = do
     let pickZoneSends = [picked 0 0 0 "DT1" 0 "apple" 3, picked 0 0 0 "DT1" 1 "banana" 4, picked 0 0 0 "DT1" 0 "coconut" 1, picked 0 0 0 "DT1" 0 "coconut" 2, picked 0 0 0 "DT1" 2 "donut" 5, picked 0 0 1 "DT2" 0 "cucumber" 7]
     let frameLoadZoneSends = [frameLoaded 0 0 "F1"]
     let vanLoadZoneSends = [vanLoaded 0 "V1"]
-    let expected = fromList [(0,(Unambiguous "V1",fromList [(0,(Unambiguous "F1",fromList [(0,(Unambiguous "DT1",fromList [(0,fromList [("apple",Increasing 3),("coconut",Increasing 2)]),(1,fromList [("banana",Increasing 4)]),(2,fromList [("donut",Increasing 5)])])),(1,(Unambiguous "DT2",fromList [(0,fromList [("cucumber",Increasing 7)])]))]))]))]
+    let expected = fromList [(0,("V1",fromList [(0,("F1",fromList [(0,("DT1",fromList [(0,fromList [("apple", 3),("coconut", 2)]),(1,fromList [("banana", 4)]),(2,fromList [("donut", 5)])])),(1,("DT2",fromList [(0,fromList [("cucumber", 7)])]))]))]))]
     
     let phoenixReceivesPermutations = L.take 10 $ permuteDuplicates 4 [pickZoneSends, frameLoadZoneSends, vanLoadZoneSends]
     forM_ phoenixReceivesPermutations $ \phoenixReceives -> do

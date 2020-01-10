@@ -147,6 +147,9 @@ instance Based (Proxy a) () where
 -- | Equivalent to Max.
 newtype Increasing a = Increasing a -- { increasing :: a }
 
+instance Num a => Num (Increasing a) where
+    fromInteger = Increasing . fromInteger
+
 -- instance IsString a => IsString (Increasing a) where
 --     fromString = Increasing . fromString
 
@@ -275,6 +278,9 @@ data Same a = Unknown | Unambiguous a | Ambiguous (Set a)
 
 deriving instance Eq a => Eq (Same a)
 deriving instance Show a => Show (Same a)
+
+instance IsString a => IsString (Same a) where
+    fromString = Unambiguous . fromString
 
 instance Ord a => Semigroup (Same a) where
     Unknown <> p = p
