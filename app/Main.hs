@@ -92,10 +92,23 @@ permuteDuplicates duplicates as = L.permutations $ duplicate duplicates (mconcat
 
 main :: IO ()
 main = do
-    let pickZoneSends = [picked 0 0 0 "DT1" 0 "apple" 3, picked 0 0 0 "DT1" 1 "banana" 4, picked 0 0 0 "DT1" 0 "coconut" 1, picked 0 0 0 "DT1" 0 "coconut" 2, picked 0 0 0 "DT1" 2 "donut" 5, picked 0 0 1 "DT2" 0 "cucumber" 7]
-    let frameLoadZoneSends = [frameLoaded 0 0 "F1"]
-    let vanLoadZoneSends = [vanLoaded 0 "V1"]
+    let pickZoneEvents = 
+            [
+                picked 0 0 0 "DT1" 0 "apple" 3, 
+                picked 0 0 0 "DT1" 1 "banana" 4,
+                picked 0 0 0 "DT1" 0 "coconut" 1,
+                picked 0 0 0 "DT1" 0 "coconut" 2,
+                picked 0 0 0 "DT1" 2 "donut" 5,
+                picked 0 0 1 "DT2" 0 "cucumber" 7
+            ]
+    let frameLoadZoneEvents = 
+            [
+                frameLoaded 0 0 "F1"
+            ]
+    let vanLoadZoneEvents = 
+            [
+                vanLoaded 0 "V1"
+            ]
     let expected = fromList [(0,("V1",fromList [(0,("F1",fromList [(0,("DT1",fromList [(0,fromList [("apple", 3),("coconut", 2)]),(1,fromList [("banana", 4)]),(2,fromList [("donut", 5)])])),(1,("DT2",fromList [(0,fromList [("cucumber", 7)])]))]))]))]
-    
-    let phoenixReceivesPermutations = L.take 10000 $ permuteDuplicates 4 [vanLoadZoneSends, frameLoadZoneSends, pickZoneSends]
-    print $ all (`ascendsTo` expected) phoenixReceivesPermutations
+    let receivedEventsPermutations = L.take 10000 $ permuteDuplicates 4 [vanLoadZoneEvents, frameLoadZoneEvents, pickZoneEvents]
+    print $ all (`ascendsTo` expected) receivedEventsPermutations
