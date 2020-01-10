@@ -34,30 +34,30 @@ type Van = Map PositionInVan (Same LPN, Frame)
 type Shipment = Map PositionInShipment (Same LPN, Van)
 
 type FrameGoal = Map PositionInFrame DT
+
 type VanGoal = Map PositionInVan FrameGoal
+
 type ShipmentGoal = Map PositionInShipment VanGoal
-
-type DTs = Map LPN DT
-
-type DTAssignment = Map LogicalDTId (Same LPN)
-
-type PhysicalState = (DTAssignment, DTs)
-
-type LogicalState = Map LogicalDTId DT
 
 -- functions(Same LPN, 
 foo :: Frame -> Map LPN PositionInFrame
 foo = undefined
 
 -- homomorphisms - morphisms
+bag :: SkuId -> Qty -> Bag
+bag skuId qty = base (skuId, Increasing qty)
+
+dt :: Int -> Bag -> DT
+dt pidt b = base (pidt, b)
+
 pick :: PositionInShipment -> PositionInVan -> PositionInFrame -> LPN -> Int -> SkuId -> Qty -> Shipment
 pick pishipment pivan piframe dtlpn pidt skuId qty = base (pishipment, (bottom, base (pivan, (bottom, base (piframe, (Unambiguous dtlpn, base (pidt, base (skuId, Increasing qty))))))))
 
-frameAssign :: PositionInShipment -> PositionInVan -> LPN -> Shipment
-frameAssign pishipment pivan frameLpn = base (pishipment, (bottom, base (pivan, (Unambiguous frameLpn, bottom))))
+frameLoad :: PositionInShipment -> PositionInVan -> LPN -> Shipment
+frameLoad pishipment pivan frameLpn = base (pishipment, (bottom, base (pivan, (Unambiguous frameLpn, bottom))))
 
-vanAssign :: PositionInShipment -> LPN -> Shipment
-vanAssign pishipment vanLpn = base (pishipment, (Unambiguous vanLpn, bottom))
+vanLoad :: PositionInShipment -> LPN -> Shipment
+vanLoad pishipment vanLpn = base (pishipment, (Unambiguous vanLpn, bottom))
 
 frameToGoal :: Frame -> FrameGoal
 frameToGoal = fmap snd
@@ -77,23 +77,14 @@ frameloadedVan = fmap $ \(slpn, f) -> case slpn of Unknown -> bottom; Unambiguou
 
 frameloadedShipment :: Shipment -> ShipmentGoal
 frameloadedShipment = fmap $ frameloadedVan . snd
-        
+
+-- is this homomorphism?
 vanloadedShipment :: Shipment -> ShipmentGoal
 vanloadedShipment = fmap $ \(slpn, g) -> case slpn of Unknown -> bottom; Unambiguous _ -> vanToGoal g; Ambiguous _ -> bottom;
 
-
-
--- van = fmap $ \(slpn, f) -> case slpn of Unknown -> bottom; Unambiguous _ -> frame f; Ambiguous _ -> bottom;
-
--- van :: Map PositionInVan (Same LPN, Frame) -> Map PositionInVan Frame 
--- van = fmap $ \(slpn, dt) -> case slpn of Unknown -> bottom; Unambiguous _ -> dt; Ambiguous _ -> bottom;
-
-
-    -- propagateSame (const dt) slpn
-
 main :: IO ()
 main = do
-    let actual = bjsconcat [pick 0 0 1 "123" 0 "apple" 3, pick 0 0 1 "123" 1 "banana" 4, pick 0 0 1 "123" 0 "coconut" 1, pick 0 0 1 "123" 0 "coconut" 2, pick 0 0 1 "123" 2 "donut" 5, pick 0 0 1  "123" 2 "donut" 5, pick 0 0 2 "444" 0 "cucumber" 7, frameAssign 0 0 "f1", vanAssign 0 "v1"]
+    let actual = bjsconcat [pick 0 0 1 "123" 0 "apple" 3, pick 0 0 1 "123" 1 "banana" 4, pick 0 0 1 "123" 0 "coconut" 1, pick 0 0 1 "123" 0 "coconut" 2, pick 0 0 1 "123" 2 "donut" 5, pick 0 0 1  "123" 2 "donut" 5, pick 0 0 2 "444" 0 "cucumber" 7, frameLoad 0 0 "f1", vanLoad 0 "v1"]
     let expected = bjsconcat [pickGoal 0 0 1 0 "apple" 3, pickGoal 0 0 1 1 "banana" 4, pickGoal 0 0 1 0 "coconut" 2, pickGoal 0 0 1 2 "donut" 5, pickGoal 0 0 2 0 "cucumber" 7]
     let actuallyPicked = pickedShipment actual
     let actuallyFrameloaded = frameloadedShipment actual
@@ -109,42 +100,3 @@ main = do
     print $ actuallyVanloaded <+ expected -- True
     print actuallyFrameloaded
     print actuallyVanloaded
-
-
---
-bag :: SkuId -> Qty -> Bag
-bag skuId qty = base (skuId, Increasing qty)
-
-bagToDT :: Int -> Bag -> DT
-bagToDT pidt b = base (pidt, b)
-
-dtToPhysicalState :: LPN -> DT -> PhysicalState
-dtToPhysicalState lpn dt = (bottom, base (lpn, dt))
-
-physicalToLogicalState :: PhysicalState -> LogicalState
-physicalToLogicalState (assignments, p) = (\slpn -> case slpn of
-    Unknown -> bottom
-    Ambiguous _ -> bottom 
-    Unambiguous lpn -> fromMaybe bottom (M.lookup lpn p)) <$> assignments
--- this is not homorphism, it's merely monotonic
-
-dtAssignment :: LogicalDTId -> LPN -> DTAssignment
-dtAssignment dtid lpn = base (dtid, Unambiguous lpn)
-
-dtAssignmentToPhysicalState :: DTAssignment -> PhysicalState
-dtAssignmentToPhysicalState a = (a, bottom)
-
---
--- main :: IO ()
--- main = do
---     let actual = bjsconcat [dtAssignment' "1" "123", physicalPick "123" 0 "apple" 3, physicalPick "123" 1 "banana" 4, physicalPick "123" 0 "coconut" 1, physicalPick "123" 0 "coconut" 2, physicalPick "123" 2 "donut" 5, physicalPick "123" 2 "donut" 5, dtAssignment' "2" "444", physicalPick "444" 0 "cucumber" 7]
---     let expected = bjsconcat [logicalPick "1" 0 "apple" 3, logicalPick "1" 1 "banana" 4]
---     print $ actual +> expected -- True
---     print $ actual <+ expected -- False 
---         where
---             physicalPick :: LPN -> BagId -> SkuId -> Qty -> LogicalState
---             physicalPick lpn bagId skuId = physicalToLogicalState . dtToPhysicalState lpn . bagToDT bagId . bag skuId
---             logicalPick :: LogicalDTId -> BagId -> SkuId -> Qty -> LogicalState
---             logicalPick dtId bagId skuId = physicalToLogicalState . dtToPhysicalState dtId . bagToDT bagId . bag skuId
---             dtAssignment' :: LogicalDTId -> LPN -> LogicalState
---             dtAssignment' dtid = physicalToLogicalState . dtAssignmentToPhysicalState . dtAssignment dtid
