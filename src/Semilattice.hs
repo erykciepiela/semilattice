@@ -7,6 +7,7 @@ module Semilattice (
     (+>>),
     (<+>),
     bjsconcat,
+    bjsscan,
     isAscending,
     isDescending,
     Based(..),
@@ -56,7 +57,10 @@ bjsconcatS = S.foldr (\/) bottom
 
 bjsconcat :: (Foldable f, BoundedJoinSemilattice s) => f s -> s
 bjsconcat = Prelude.foldr (\/) bottom
--- if f s is bounded bjsconcat semilattice then it's a propagator
+-- if f s is bounded semilattice then it's a propagator
+
+bjsscan :: (BoundedJoinSemilattice s) => [s] -> [s]
+bjsscan = scanl' (\/) bottom
 
 bjsconcat'' :: (Foldable f, BoundedJoinSemilattice s, BoundedJoinSemilattice (f s)) => f s -> s
 bjsconcat'' = Prelude.foldr (\/) bottom

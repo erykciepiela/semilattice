@@ -98,8 +98,9 @@ main = do
     let expected = fromList [(0,("V1",fromList [(0,("F1",fromList [(0,("DT1",fromList [(0,fromList [("apple", 3),("coconut", 2)]),(1,fromList [("banana", 4)]),(2,fromList [("donut", 5)])])),(1,("DT2",fromList [(0,fromList [("cucumber", 7)])]))]))]))]
     
     let phoenixReceivesPermutations = L.take 10000 $ permuteDuplicates 4 [vanLoadZoneSends, frameLoadZoneSends, pickZoneSends]
-    print $ all isAscending $ (\rs -> Increasing . (expected ==) <$> scanl' (\/) bottom rs) <$> phoenixReceivesPermutations
-    print $ all (expected ==) $ (\rs -> L.foldl' (\/) bottom rs) <$> phoenixReceivesPermutations
+    print $ all isAscending $ (\rs -> Increasing . (expected ==) <$> bjsscan rs) <$> phoenixReceivesPermutations
+    print $ all isAscending $ bjsscan <$> phoenixReceivesPermutations
+    print $ all (expected ==) $ bjsconcat <$> phoenixReceivesPermutations
     print $ and $ (\rs -> all (expected +>) rs) <$> phoenixReceivesPermutations
     -- forM_ phoenixReceivesPermutations $ \phoenixReceives -> do
     --     let actual = bjsconcat phoenixReceives
