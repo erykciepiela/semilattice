@@ -1,4 +1,5 @@
 module Semilattice (
+    JoinSemilattice(..),
     BoundedJoinSemilattice(..),
     (+>),
     (<+),
@@ -6,6 +7,8 @@ module Semilattice (
     (+>>),
     (<+>),
     bjsconcat,
+    isAscending,
+    isDescending,
     Based(..),
     -- | Primitive bjsconcat semilattices 
     Increasing(..),
