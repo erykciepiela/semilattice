@@ -37,6 +37,7 @@ import Data.Void
 import Data.Maybe
 import Data.IORef
 import Control.Comonad
+import Data.String
 
 class JoinSemilattice s where
     -- a \/ (b  \/ c) = (a \/ n) \/ c - associativity
@@ -145,6 +146,11 @@ instance Based (Proxy a) () where
 -- | If @a@ is Ord and Bounded and we know it increases in time.
 -- | Equivalent to Max.
 newtype Increasing a = Increasing a -- { increasing :: a }
+
+-- instance IsString a => IsString (Increasing a) where
+--     fromString = Increasing . fromString
+
+-- instance Num a => Num (Increasing a) where
 
 deriving instance Show a => Show (Increasing a)
 

@@ -92,26 +92,28 @@ permuteDuplicates duplicates as = L.permutations $ duplicate duplicates (mconcat
 
 main :: IO ()
 main = do
-    let expected = bjsconcat [pickGoal 0 0 0 0 "apple" 3, pickGoal 0 0 0 1 "banana" 4, pickGoal 0 0 0 0 "coconut" 2, pickGoal 0 0 0 2 "donut" 5, pickGoal 0 0 1 0 "cucumber" 7]
-    let pickZoneSends = [picked 0 0 0 "DT1" 0 "apple" 3, picked 0 0 0 "DT1" 1 "banana" 4, picked 0 0 0 "DT1" 0 "coconut" 1, picked 0 0 0 "DT1" 0 "coconut" 2, picked 0 0 0 "DT1" 2 "donut" 5, picked 0 0 1 "444" 0 "cucumber" 7]
-    let frameLoadingZoneSends = [frameLoaded 0 0 "F1"]
-    let vanLoadingZoneSends = [vanLoaded 0 "V1"]
+    let pickZoneSends = [picked 0 0 0 "DT1" 0 "apple" 3, picked 0 0 0 "DT1" 1 "banana" 4, picked 0 0 0 "DT1" 0 "coconut" 1, picked 0 0 0 "DT1" 0 "coconut" 2, picked 0 0 0 "DT1" 2 "donut" 5, picked 0 0 1 "DT2" 0 "cucumber" 7]
+    let frameLoadZoneSends = [frameLoaded 0 0 "F1"]
+    let vanLoadZoneSends = [vanLoaded 0 "V1"]
+    let expected = fromList [(0,(Unambiguous "V1",fromList [(0,(Unambiguous "F1",fromList [(0,(Unambiguous "DT1",fromList [(0,fromList [("apple",Increasing 3),("coconut",Increasing 2)]),(1,fromList [("banana",Increasing 4)]),(2,fromList [("donut",Increasing 5)])])),(1,(Unambiguous "DT2",fromList [(0,fromList [("cucumber",Increasing 7)])]))]))]))]
     
-    let phoenixReceivesPermutations = L.take 10 $ permuteDuplicates 4 [pickZoneSends, frameLoadingZoneSends, vanLoadingZoneSends]
+    let phoenixReceivesPermutations = L.take 10 $ permuteDuplicates 4 [pickZoneSends, frameLoadZoneSends, vanLoadZoneSends]
     forM_ phoenixReceivesPermutations $ \phoenixReceives -> do
         let actual = bjsconcat phoenixReceives
         let actuallyPicked = pickedShipment actual
         let actuallyFrameloaded = frameloadedShipment actual
         let actuallyVanloaded = vanloadedShipment actual
-        print $ actuallyPicked <+> expected -- True
-        print $ actuallyPicked +> expected -- True
-        print $ actuallyPicked <+ expected -- True
-        print $ actuallyFrameloaded <+> expected -- True
-        print $ actuallyFrameloaded +> expected -- True
-        print $ actuallyFrameloaded <+ expected -- True
-        print $ actuallyVanloaded <+> expected -- True
-        print $ actuallyVanloaded +> expected -- True
-        print $ actuallyVanloaded <+ expected -- True
-        -- print actuallyFrameloaded
-        -- print actuallyVanloaded
-        -- print actual
+        print $ actual <+> expected -- True
+        print $ actual +> expected -- True
+        print $ actual <+ expected -- True
+        print $ actual == expected -- True
+        -- print $ actuallyPicked <+> expected -- True
+        -- print $ actuallyPicked +> expected -- True
+        -- print $ actuallyPicked <+ expected -- True
+        -- print $ actuallyFrameloaded <+> expected -- True
+        -- print $ actuallyFrameloaded +> expected -- True
+        -- print $ actuallyFrameloaded <+ expected -- True
+        -- print $ actuallyVanloaded <+> expected -- True
+        -- print $ actuallyVanloaded +> expected -- True
+        -- print $ actuallyVanloaded <+ expected -- True
+    -- print expected
