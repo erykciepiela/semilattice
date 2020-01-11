@@ -398,8 +398,9 @@ instance (JoinSemilattice a, JoinSemilattice b) => JoinSemilattice (a, b) where
 instance (BoundedJoinSemilattice a, BoundedJoinSemilattice b) => BoundedJoinSemilattice (a, b) where
     bottom = (bottom, bottom)
 
-instance (Based a b, Based c d) => Based (a, c) (b, d) where
-    jirelement (b, d) = (jirelement b, jirelement d) 
+instance (Based a b, Based c d) => Based (a, c) (Either b d) where
+    jirelement (Left b) = (jirelement b, bottom) 
+    jirelement (Right d) = (bottom, jirelement d) 
 
 --
 instance (JoinSemilattice a, JoinSemilattice b, JoinSemilattice c) => JoinSemilattice (a, b, c) where
