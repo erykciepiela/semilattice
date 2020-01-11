@@ -401,6 +401,17 @@ instance (BoundedJoinSemilattice a, BoundedJoinSemilattice b, BoundedJoinSemilat
 
 -- and so on...
 
+--
+instance (JoinSemilattice a, JoinSemilattice b) => JoinSemilattice (Either a b) where
+    Left a1 \/ Left a2 = Left (a1 \/ a2)
+    Right b1 \/ Right b2 = Right (b1 \/ b2)
+    Left _ \/ r@(Right _) = r
+    r@(Right _) \/ Left _ = r
+
+instance (BoundedJoinSemilattice a, BoundedJoinSemilattice b) => BoundedJoinSemilattice (Either a b) where
+    bottom = Left bottom
+
+
 -- | More on homomorphisms
 -- @f@ is homomorphisms if and only if @f (x \/ y) = f x \/ f y@
 -- if @f@ is homomorphism then @f@ is monotone
