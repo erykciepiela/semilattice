@@ -19,10 +19,10 @@ type BagId = Int
 type ShipmentId = String
 type VanId = String
 type FrameId = String
+type PositionInDT = Int
 type PositionInFrame = Int
 type PositionInVan = Int
 type PositionInShipment = Int
-type PositionInDT = Int
 
 -- bounded join semilattices - objects
 type Bag = Map SkuId (Increasing Qty)
@@ -48,14 +48,17 @@ bag skuId qty = jirelement (skuId, Increasing qty)
 dt :: Int -> Bag -> DT
 dt pidt b = jirelement (pidt, b)
 
-picked :: PositionInShipment -> PositionInVan -> PositionInFrame -> LPN -> Int -> SkuId -> Qty -> Shipment
-picked pishipment pivan piframe dtlpn pidt skuId qty = jirelement (pishipment, (bottom, jirelement (pivan, (bottom, jirelement (piframe, (Unambiguous dtlpn, jirelement (pidt, jirelement (skuId, Increasing qty))))))))
+bagPicked :: PositionInShipment -> PositionInVan -> PositionInFrame -> PositionInDT -> SkuId -> Qty -> Shipment
+bagPicked pishipment pivan piframe pidt skuId qty = jirelement (pishipment, (bottom, jirelement (pivan, (bottom, jirelement (piframe, jirelement (Right (pidt, jirelement (skuId, jirelement qty))))))))
+
+dtPicked :: PositionInShipment -> PositionInVan -> PositionInFrame -> LPN -> Shipment
+dtPicked pishipment pivan piframe dtlpn = jirelement (pishipment, (bottom, jirelement (pivan, (bottom, jirelement (piframe, jirelement (Left dtlpn))))))
 
 frameLoaded :: PositionInShipment -> PositionInVan -> LPN -> Shipment
-frameLoaded pishipment pivan frameLpn = jirelement (pishipment, (bottom, jirelement (pivan, (Unambiguous frameLpn, bottom))))
+frameLoaded pishipment pivan frameLpn = jirelement (pishipment, (bottom, jirelement (pivan, jirelement (Left frameLpn))))
 
 vanLoaded :: PositionInShipment -> LPN -> Shipment
-vanLoaded pishipment vanLpn = jirelement (pishipment, (Unambiguous vanLpn, bottom))
+vanLoaded pishipment vanLpn = jirelement (pishipment, jirelement (Left vanLpn))
 
 frameToGoal :: Frame -> FrameGoal
 frameToGoal = fmap snd
@@ -95,12 +98,14 @@ main :: IO ()
 main = do
     let pickZoneEvents = 
             [
-                picked 0 0 0 "DT1" 0 "apple" 3, 
-                picked 0 0 0 "DT1" 1 "banana" 4,
-                picked 0 0 0 "DT1" 0 "coconut" 1,
-                picked 0 0 0 "DT1" 0 "coconut" 2,
-                picked 0 0 0 "DT1" 2 "donut" 5,
-                picked 0 0 1 "DT2" 0 "cucumber" 7
+                bagPicked 0 0 0 0 "apple" 3, 
+                bagPicked 0 0 0 1 "banana" 4,
+                bagPicked 0 0 0 0 "coconut" 1,
+                bagPicked 0 0 0 0 "coconut" 2,
+                bagPicked 0 0 0 2 "donut" 5,
+                bagPicked 0 0 1 0 "cucumber" 7,
+                dtPicked 0 0 0 "DT1",
+                dtPicked 0 0 1 "DT2"
             ]
     let frameLoadZoneEvents = 
             [
