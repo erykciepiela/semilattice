@@ -115,3 +115,9 @@ main = do
     print $ bjsconcat $ vanloadedShipment <$> mconcat [vanLoadZoneEvents, frameLoadZoneEvents, pickZoneEvents] -- True
     print $ vanloadedShipment $ bjsconcat $ mconcat [vanLoadZoneEvents, frameLoadZoneEvents, pickZoneEvents] -- True
     -- print $ test 10000 4 expected $ vanloadedShipment <$> mconcat [vanLoadZoneEvents, frameLoadZoneEvents, pickZoneEvents] -- True
+
+--
+-- --- new b --   old b
+-- f (a1 \/ a2) = f a1 \/ f a2 -- we only need last arrived a2, perform f against only a2, and merge with f a2
+-- otherwise we need bjsconcat of all as, perform f against as
+
