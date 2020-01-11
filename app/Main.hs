@@ -43,19 +43,19 @@ type ShipmentGoal = Map PositionInShipment VanGoal
 
 -- homomorphisms - morphisms
 bag :: SkuId -> Qty -> Bag
-bag skuId qty = base (skuId, Increasing qty)
+bag skuId qty = jirelement (skuId, Increasing qty)
 
 dt :: Int -> Bag -> DT
-dt pidt b = base (pidt, b)
+dt pidt b = jirelement (pidt, b)
 
 picked :: PositionInShipment -> PositionInVan -> PositionInFrame -> LPN -> Int -> SkuId -> Qty -> Shipment
-picked pishipment pivan piframe dtlpn pidt skuId qty = base (pishipment, (bottom, base (pivan, (bottom, base (piframe, (Unambiguous dtlpn, base (pidt, base (skuId, Increasing qty))))))))
+picked pishipment pivan piframe dtlpn pidt skuId qty = jirelement (pishipment, (bottom, jirelement (pivan, (bottom, jirelement (piframe, (Unambiguous dtlpn, jirelement (pidt, jirelement (skuId, Increasing qty))))))))
 
 frameLoaded :: PositionInShipment -> PositionInVan -> LPN -> Shipment
-frameLoaded pishipment pivan frameLpn = base (pishipment, (bottom, base (pivan, (Unambiguous frameLpn, bottom))))
+frameLoaded pishipment pivan frameLpn = jirelement (pishipment, (bottom, jirelement (pivan, (Unambiguous frameLpn, bottom))))
 
 vanLoaded :: PositionInShipment -> LPN -> Shipment
-vanLoaded pishipment vanLpn = base (pishipment, (Unambiguous vanLpn, bottom))
+vanLoaded pishipment vanLpn = jirelement (pishipment, (Unambiguous vanLpn, bottom))
 
 frameToGoal :: Frame -> FrameGoal
 frameToGoal = fmap snd
@@ -67,7 +67,7 @@ pickedShipment :: Shipment -> ShipmentGoal
 pickedShipment = fmap $ vanToGoal . snd
 
 pickGoal :: PositionInShipment -> PositionInVan -> PositionInFrame -> PositionInDT -> SkuId -> Qty -> ShipmentGoal
-pickGoal pishipment pivan piframe pidt skuId qty = base (pishipment, base (pivan, base (piframe, base (pidt, base (skuId, Increasing qty)))))
+pickGoal pishipment pivan piframe pidt skuId qty = jirelement (pishipment, jirelement (pivan, jirelement (piframe, jirelement (pidt, jirelement (skuId, Increasing qty)))))
 
 -- is this homomorphism?
 frameloadedVan :: Van -> VanGoal 
