@@ -142,6 +142,19 @@ instance Category Homo where
     id = Homo id
     h1 . h2 = Homo $ homo h1 . homo h2 
 
+--
+newtype Mono a b = Mono { mono :: a -> b }
+
+instance Category Mono where
+    id = Mono id
+    m1 . m2 = Mono $ mono m1 . mono m2 
+
+homo2mono :: Homo a b -> Mono a b
+homo2mono h = Mono $ homo h
+
+foo :: Homo a b -> Mono b c -> Mono a c
+foo h m = m . homo2mono h
+
 -- 
 instance JoinSemilattice () where
     (\/) = (<>)

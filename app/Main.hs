@@ -72,6 +72,8 @@ shipmentDT piShipment piVan piFrame = propagateSnd . propagateMapEntry piFrame .
 shipmentBag :: PositionInShipment -> PositionInVan -> PositionInFrame -> PositionInDT -> Homo Shipment Bag
 shipmentBag piShipment piVan piFrame piDT = propagateMapEntry piDT . shipmentDT piShipment piVan piFrame
 
+shipmentPositionsDone :: Homo Shipment (GrowingSet PositionInShipment)
+shipmentPositionsDone = propagateMapKeys 
 --
 
 test :: (Eq a, BoundedJoinSemilattice a) => Int -> Int -> a -> [a] -> Bool
