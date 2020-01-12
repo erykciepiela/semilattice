@@ -406,9 +406,8 @@ instance (Ord k, BoundedJoinSemilattice v) => BoundedJoinSemilattice (GrowingMap
 instance (Ord k, BoundedJoinSemilattice v) => Based (GrowingMap k v) (k, v) where
     jirelement (k, v) = GrowingMap $ M.singleton k v
 
--- propagateMap :: (Ord k, Ord k', JoinSemilattice v) => (v -> v -> v) -- | must be monotone
---     -> (k -> k') -> GrowingMap k v -> GrowingMap k' v
--- propagateMap = M.mapKeysWith
+propagateMap :: (Ord k, BoundedJoinSemilattice s, BoundedJoinSemilattice s') => (s -> s') -> GrowingMap k s -> GrowingMap k s' 
+propagateMap homo = GrowingMap . fmap homo . growingMap
 
 propagateMapEntry :: (Ord k, BoundedJoinSemilattice s) => k -> GrowingMap k s -> s
 propagateMapEntry k m = fromMaybe bottom $ M.lookup k $ growingMap m
@@ -416,8 +415,6 @@ propagateMapEntry k m = fromMaybe bottom $ M.lookup k $ growingMap m
 propagateMapKeys :: (Ord k, BoundedJoinSemilattice s) => GrowingMap k s -> GrowingSet k
 propagateMapKeys = GrowingSet . M.keysSet . growingMap
 
-propagateMap :: (Ord k, BoundedJoinSemilattice s, BoundedJoinSemilattice s') => (s -> s') -> GrowingMap k s -> GrowingMap k s' 
-propagateMap homo = GrowingMap . fmap homo . growingMap
 
 
 --
