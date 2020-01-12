@@ -31,6 +31,8 @@ module Semilattice (
     GrowingMap(..),
     propagateMap,
     propagateMapEntry,
+    propagateMapKeys,
+    propagateMapValues,
     propagateListElement,
     --
     propagateFst,
@@ -423,8 +425,11 @@ propagateMap h = Homo $ GrowingMap . fmap (homo h) . growingMap
 propagateMapEntry :: (Ord k, BoundedJoinSemilattice s) => k -> Homo (GrowingMap k s) s
 propagateMapEntry k = Homo $ fromMaybe bottom . M.lookup k . growingMap
 
-propagateMapKeys :: (Ord k, BoundedJoinSemilattice s) => GrowingMap k s -> GrowingSet k
-propagateMapKeys = GrowingSet . M.keysSet . growingMap
+propagateMapKeys :: (Ord k, BoundedJoinSemilattice s) => Homo (GrowingMap k s) (GrowingSet k)
+propagateMapKeys = Homo $ GrowingSet . M.keysSet . growingMap
+
+propagateMapValues :: (Ord k, BoundedJoinSemilattice s) => Homo (GrowingMap k s) s
+propagateMapValues = Homo $ L.foldl (\/) bottom . growingMap
 
 
 
