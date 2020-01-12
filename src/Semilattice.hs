@@ -1,6 +1,7 @@
 module Semilattice (
     JoinSemilattice(..),
     BoundedJoinSemilattice(..),
+    NestedSemilattice(..),
     (+>),
     (<+),
     (<<+),
@@ -49,10 +50,27 @@ class JoinSemilattice s where
     -- a \/ (b  \/ c) = (a \/ n) \/ c - associativity
     -- a \/ b = b \/ a - commutativity, saves us from out of order messages problem
     -- a \/ a = a idempotence, saves us from exactly-once delivery guarantee problem
+    -- a \/ b >= a 
+    -- a \/ b >= b 
     (\/) :: s -> s -> s
+    -- a /\ b <= a 
+    -- a /\ b <= b 
+    (/\) :: s -> s -> s
 
 class JoinSemilattice s => BoundedJoinSemilattice s where
     bottom :: s
+
+class BoundedJoinSemilattice n => NestedSemilattice n where
+    enrich :: n -> n -> n
+    strip :: n -> n -> n -- ?
+
+instance (Ord k, BoundedJoinSemilattice s) => NestedSemilattice (M.Map k s) where
+    enrich = M.intersectionWith (\/)
+    strip = M.intersectionWith (/\)
+
+instance (NestedSemilattice a, NestedSemilattice b) => NestedSemilattice (a, b) where
+    enrich (a, b) (a', b') = (enrich a a', enrich b b')
+    strip (a, b) (a', b') = (strip a a', strip b b')
 
 bjsconcatS :: (Ord s, BoundedJoinSemilattice s) => S.Set s -> s
 bjsconcatS = S.foldr (\/) bottom
@@ -117,10 +135,12 @@ isDescending (s1:rest@(s2:_)) = s1 +> s2 && isDescending rest
 --
 class BoundedJoinSemilattice s => Based s b | s -> b where
     jirelement :: b -> s
+    -- reduce :: s -> Either s b
 
 -- 
 instance JoinSemilattice () where
     (\/) = (<>)
+    (/\) = (<>)
 
 instance BoundedJoinSemilattice () where
     bottom = mempty
@@ -131,6 +151,7 @@ instance Based () () where
 --
 instance Ord a => JoinSemilattice (Max a) where
     (\/) = (<>)
+    Max a1 /\ Max a2 = Max $ min a1 a2
 
 instance (Ord a, Bounded a) => BoundedJoinSemilattice (Max a) where
     bottom = mempty
@@ -141,6 +162,7 @@ instance (Ord a, Bounded a) => Based (Max a) a where
 --
 instance Ord a => JoinSemilattice (Min a) where
     (\/) = (<>)
+    Min a1 /\ Min a2 = Min $ max a1 a2
 
 instance (Ord a, Bounded a) => BoundedJoinSemilattice (Min a) where
     bottom = mempty
@@ -151,6 +173,8 @@ instance (Ord a, Bounded a) => Based (Min a) a where
 --
 instance JoinSemilattice All where
     (\/) = (<>)
+    All True /\ All True = All True
+    _ /\ _ = All False
 
 instance BoundedJoinSemilattice All  where
     bottom = mempty
@@ -161,6 +185,8 @@ instance Based All Bool where
 --
 instance JoinSemilattice Any where
     (\/) = (<>)
+    Any True /\ Any True = Any True
+    _ /\ _ = Any False
 
 instance BoundedJoinSemilattice Any  where
     bottom = mempty
@@ -172,6 +198,7 @@ instance Based Any Bool where
 --
 instance JoinSemilattice (Proxy a) where
     (\/) = (<>)
+    (/\) = (<>)
 
 instance BoundedJoinSemilattice (Proxy a) where
     bottom = mempty
@@ -203,6 +230,7 @@ deriving instance Eq a => Eq (Increasing a)
 
 instance Ord a => JoinSemilattice (Increasing a) where
     (\/) = (<>)
+    Increasing a1 /\ Increasing a2 = Increasing $ min a1 a2
     
 instance (Ord a, Bounded a) => BoundedJoinSemilattice (Increasing a) where
     bottom = mempty
@@ -242,6 +270,7 @@ deriving instance Eq a => Eq (Decreasing a)
 
 instance Ord a => JoinSemilattice (Decreasing a) where
     (\/) = (<>)
+    Decreasing a1 /\ Decreasing a2 = Decreasing $ max a1 a2
 
 instance (Ord a, Bounded a) => BoundedJoinSemilattice (Decreasing a) where
     bottom = mempty
@@ -275,6 +304,7 @@ instance Ord a => Monoid (Growing a) where
 
 instance Ord a => JoinSemilattice (Growing a) where
     (\/) = (<>)
+    Growing s1 /\ Growing s2 = Growing $ S.intersection s1 s2
 
 instance Ord a => BoundedJoinSemilattice (Growing a) where
     bottom = mempty
@@ -298,6 +328,7 @@ instance (Ord a, Enum a, Bounded a) => Monoid (Shrinking a) where
 
 instance Ord a => JoinSemilattice (Shrinking a) where
     (\/) = (<>)
+    Shrinking s1 /\ Shrinking s2 = Shrinking $ S.union s1 s2
 
 instance (Ord a, Enum a, Bounded a) => BoundedJoinSemilattice (Shrinking a) where
     bottom = mempty
@@ -333,6 +364,14 @@ instance Ord a => Monoid (Same a) where
 
 instance Ord a => JoinSemilattice (Same a) where
     (\/) = (<>)
+    Unknown /\ p = Unknown
+    p /\ Unknown = Unknown
+    Ambiguous as /\ p@(Unambiguous a) = p
+    p@(Unambiguous a) /\ Ambiguous as = p
+    Ambiguous as1 /\ Ambiguous as2 = Ambiguous (S.intersection as1 as2) -- ?
+    p@(Unambiguous a1) /\ (Unambiguous a2)
+        | a1 == a2 = p
+        | otherwise = Unknown
 
 instance Ord a => BoundedJoinSemilattice (Same a) where
     bottom = mempty
@@ -351,6 +390,7 @@ propagateSame f (Ambiguous as) = Ambiguous (S.map f as)
 --
 instance JoinSemilattice a => JoinSemilattice (Identity a) where
     Identity a1 \/ Identity a2 = Identity $ a1 \/ a2
+    Identity a1 /\ Identity a2 = Identity $ a1 /\ a2
 
 instance BoundedJoinSemilattice a => BoundedJoinSemilattice (Identity a) where
     bottom = bottom
@@ -361,6 +401,7 @@ instance Based a b => Based (Identity a) b where
 --
 instance (Ord k, JoinSemilattice v) => JoinSemilattice (M.Map k v) where
     (\/) = M.unionWith (\/)
+    (/\) = M.intersectionWith (/\)
 
 instance (Ord k, BoundedJoinSemilattice v) => BoundedJoinSemilattice (M.Map k v) where
     bottom = mempty
@@ -378,6 +419,7 @@ propagateMapEntry k m = fromMaybe bottom $ M.lookup k m
 --
 instance JoinSemilattice a => JoinSemilattice [a] where
     l1 \/ l2 = foldl1 (\/) <$> transpose [l1, l2]
+    l1 /\ l2 = foldl1 (/\) <$> transpose [l1, l2]
 
 instance BoundedJoinSemilattice a => BoundedJoinSemilattice [a] where
     bottom = mempty
@@ -394,6 +436,7 @@ propagateListElement i l
 -- 
 instance (JoinSemilattice a, JoinSemilattice b) => JoinSemilattice (a, b) where
     (a1, b1) \/ (a2, b2) = (a1 \/ a2, b1 \/ b2)
+    (a1, b1) /\ (a2, b2) = (a1 /\ a2, b1 /\ b2)
 
 instance (BoundedJoinSemilattice a, BoundedJoinSemilattice b) => BoundedJoinSemilattice (a, b) where
     bottom = (bottom, bottom)
@@ -405,6 +448,7 @@ instance (Based a b, Based c d) => Based (a, c) (Either b d) where
 --
 instance (JoinSemilattice a, JoinSemilattice b, JoinSemilattice c) => JoinSemilattice (a, b, c) where
     (a1, b1, c1) \/ (a2, b2, c2) = (a1 \/ a2, b1 \/ b2, c1 \/ c2)
+    (a1, b1, c1) /\ (a2, b2, c2) = (a1 /\ a2, b1 /\ b2, c1 /\ c2)
 
 instance (BoundedJoinSemilattice a, BoundedJoinSemilattice b, BoundedJoinSemilattice c) => BoundedJoinSemilattice (a, b, c) where
     bottom = (bottom, bottom, bottom)
@@ -415,6 +459,7 @@ instance (Based a b, Based c d, Based e f) => Based (a, c, e) (b, d, f) where
 --
 instance (JoinSemilattice a, JoinSemilattice b, JoinSemilattice c, JoinSemilattice d) => JoinSemilattice (a, b, c, d) where
     (a1, b1, c1, d1) \/ (a2, b2, c2, d2) = (a1 \/ a2, b1 \/ b2, c1 \/ c2, d1 \/ d2)
+    (a1, b1, c1, d1) /\ (a2, b2, c2, d2) = (a1 /\ a2, b1 /\ b2, c1 /\ c2, d1 /\ d2)
 
 instance (BoundedJoinSemilattice a, BoundedJoinSemilattice b, BoundedJoinSemilattice c, BoundedJoinSemilattice d) => BoundedJoinSemilattice (a, b, c, d) where
     bottom = (bottom, bottom, bottom, bottom)
@@ -430,6 +475,10 @@ instance (JoinSemilattice a, JoinSemilattice b) => JoinSemilattice (Either a b) 
     Right b1 \/ Right b2 = Right (b1 \/ b2)
     Left _ \/ r@(Right _) = r
     r@(Right _) \/ Left _ = r
+    Left a1 /\ Left a2 = Left (a1 /\ a2)
+    Right b1 /\ Right b2 = Right (b1 /\ b2)
+    r@(Left _) /\ Right _ = r
+    Right _ /\ r@(Left _) = r
 
 instance (BoundedJoinSemilattice a, BoundedJoinSemilattice b) => BoundedJoinSemilattice (Either a b) where
     bottom = Left bottom
