@@ -72,32 +72,6 @@ shipmentDT piShipment piVan piFrame = propagateSnd . propagateMapEntry piFrame .
 shipmentBag :: PositionInShipment -> PositionInVan -> PositionInFrame -> PositionInDT -> Homo Shipment Bag
 shipmentBag piShipment piVan piFrame piDT = propagateMapEntry piDT . shipmentDT piShipment piVan piFrame
 
-
-
-
-frameToGoal :: Homo Frame FrameGoal
-frameToGoal = propagateMap propagateSnd
-
-vanToGoal :: Homo Van VanGoal
-vanToGoal = propagateMap $ frameToGoal . propagateSnd
-
-pickedShipment :: Homo Shipment ShipmentGoal
-pickedShipment = propagateMap $ vanToGoal . propagateSnd
-
--- pickGoal :: PositionInShipment -> PositionInVan -> PositionInFrame -> PositionInDT -> SkuId -> Qty -> ShipmentGoal
--- pickGoal pishipment pivan piframe pidt skuId qty = jirelement (pishipment, jirelement (pivan, jirelement (piframe, jirelement (pidt, jirelement (skuId, Increasing qty)))))
-
--- is this homomorphism?
--- frameloadedVan :: Van -> VanGoal 
--- frameloadedVan = propagateMap $ \(slpn, f) -> case slpn of Unknown -> bottom; Unambiguous _ -> frameToGoal f; Ambiguous _ -> bottom;
-
--- frameloadedShipment :: Shipment -> ShipmentGoal
--- frameloadedShipment = propagateMap $ frameloadedVan . snd
-
--- is this homomorphism?
--- vanloadedShipment :: Shipment -> ShipmentGoal
--- vanloadedShipment = propagateMap $ \(slpn, g) -> case slpn of Unknown -> bottom; Unambiguous _ -> vanToGoal g; Ambiguous _ -> bottom;
-
 --
 
 test :: (Eq a, BoundedJoinSemilattice a) => Int -> Int -> a -> [a] -> Bool

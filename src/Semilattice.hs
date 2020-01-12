@@ -30,6 +30,7 @@ module Semilattice (
     -- | Higher-kinded bjsconcat semilattices
     GrowingMap(..),
     propagateMap,
+    propagateMapSize,
     propagateMapEntry,
     propagateListElement,
     --
@@ -419,6 +420,9 @@ instance (Ord k, BoundedJoinSemilattice v) => Based (GrowingMap k v) (k, v) wher
 
 propagateMap :: (Ord k, BoundedJoinSemilattice s, BoundedJoinSemilattice s') => Homo s s' -> Homo (GrowingMap k s) (GrowingMap k s')
 propagateMap h = Homo $ GrowingMap . fmap (homo h) . growingMap
+
+propagateMapSize :: (Ord k, BoundedJoinSemilattice s, BoundedJoinSemilattice s') => Homo (GrowingMap k s) (Increasing Int)
+propagateMapSize = Homo $ Increasing . M.size . growingMap
 
 propagateMapEntry :: (Ord k, BoundedJoinSemilattice s) => k -> Homo (GrowingMap k s) s
 propagateMapEntry k = Homo $ fromMaybe bottom . M.lookup k . growingMap
