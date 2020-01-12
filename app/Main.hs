@@ -60,8 +60,20 @@ vanLoaded :: PositionInShipment -> LPN -> Shipment
 vanLoaded pishipment vanLpn = jirelement (pishipment, jirelement (Left vanLpn))
 
 -- homomorphisms - morphisms
-propagateBag :: PositionInShipment -> PositionInVan -> PositionInFrame -> PositionInDT -> Homo Shipment Bag
-propagateBag piShipment piVan piFrame piDT = propagateMapEntry piDT . propagateSnd . propagateMapEntry piFrame . propagateSnd . propagateMapEntry piVan . propagateSnd . propagateMapEntry piShipment 
+shipmentVan :: PositionInShipment -> Homo Shipment Van
+shipmentVan piShipment = propagateSnd . propagateMapEntry piShipment 
+
+shipmentFrame :: PositionInShipment -> PositionInVan -> Homo Shipment Frame
+shipmentFrame piShipment piVan = propagateSnd . propagateMapEntry piVan . shipmentVan piShipment 
+
+shipmentDT :: PositionInShipment -> PositionInVan -> PositionInFrame -> Homo Shipment DT
+shipmentDT piShipment piVan piFrame = propagateSnd . propagateMapEntry piFrame . shipmentFrame piVan piFrame
+
+shipmentBag :: PositionInShipment -> PositionInVan -> PositionInFrame -> PositionInDT -> Homo Shipment Bag
+shipmentBag piShipment piVan piFrame piDT = propagateMapEntry piDT . shipmentDT piShipment piVan piFrame
+
+
+
 
 frameToGoal :: Homo Frame FrameGoal
 frameToGoal = propagateMap propagateSnd
@@ -121,7 +133,7 @@ main = do
     let expected = bconcat [(0,("V1",bconcat [(0,("F1",bconcat [(0,("DT1",bconcat [(0,bconcat [("apple", 3),("coconut", 2)]),(1,bconcat [("banana", 4)]),(2,bconcat [("donut", 5)])])),(1,("DT2",bconcat [(0,bconcat [("cucumber", 7)])]))]))]))]
     print $ test 10000 4 expected $ mconcat [vanLoadZoneEvents, frameLoadZoneEvents, pickZoneEvents] -- True
     let expected' = bag "apple" 3 \/ bag "coconut" 2
-    print $ test 10000 4 expected' $ homo (propagateBag 0 0 0 0) <$> mconcat [vanLoadZoneEvents, frameLoadZoneEvents, pickZoneEvents] -- True
+    print $ test 10000 4 expected' $ homo (shipmentBag 0 0 0 0) <$> mconcat [vanLoadZoneEvents, frameLoadZoneEvents, pickZoneEvents] -- True
 
 
 --
