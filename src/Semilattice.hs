@@ -1,8 +1,6 @@
 module Semilattice (
     JoinSemilattice(..),
     BoundedJoinSemilattice(..),
-    NestedSemilattice(..),
-    en,
     (+>),
     (<+),
     (<<+),
@@ -15,6 +13,7 @@ module Semilattice (
     ascendsTo,    
     isDescending,
     Based(..),
+    bconcat,
     -- | Primitive bjsconcat semilattices 
     Increasing(..),
     propagateIncrease,
@@ -23,11 +22,12 @@ module Semilattice (
     propagateDecrease,
     Same(..),
     propagateSame,
-    Growing(..),
+    GrowingSet(..),
     propagateGrowth,
-    Shrinking(..),
+    ShrinkingSet(..),
     propagateShrink,
     -- | Higher-kinded bjsconcat semilattices
+    GrowingMap(..),
     propagateMap,
     propagateMapEntry,
     propagateListElement
@@ -60,27 +60,6 @@ class JoinSemilattice s where
 
 class JoinSemilattice s => BoundedJoinSemilattice s where
     bottom :: s
-
-class BoundedJoinSemilattice n => NestedSemilattice n where
-    enrich :: n -> n -> n
-    strip :: n -> n -> n -- ?
-
-instance (Ord k, BoundedJoinSemilattice s) => NestedSemilattice (M.Map k s) where
-    enrich = M.intersectionWith (\/)
-    strip = M.intersectionWith (/\)
-
-instance (NestedSemilattice a, NestedSemilattice b) => NestedSemilattice (a, b) where
-    enrich (a, b) (a', b') = (enrich a a', enrich b b')
-    strip (a, b) (a', b') = (strip a a', strip b b')
-
-en ::(NestedSemilattice s, Based s b) => b -> s -> s
-en b = enrich (jirelement b)
-
-push ::(JoinSemilattice s, Based s b) => b -> s -> s
-push b = (\/ jirelement b)
-
-pull ::(JoinSemilattice s, Based s b) => b -> s -> s
-pull b = (/\ jirelement b)
 
 bjsconcatS :: (Ord s, BoundedJoinSemilattice s) => S.Set s -> s
 bjsconcatS = S.foldr (\/) bottom
@@ -144,8 +123,11 @@ isDescending (s1:rest@(s2:_)) = s1 +> s2 && isDescending rest
 
 --
 class BoundedJoinSemilattice s => Based s b | s -> b where
+    -- join-irreducible element
     jirelement :: b -> s
-    -- reduce :: s -> Either s b
+
+bconcat :: Based s b => [b] -> s
+bconcat bs = bjsconcat $ jirelement <$> bs
 
 -- 
 instance JoinSemilattice () where
@@ -300,54 +282,54 @@ propagateDecrease f (Decreasing a) = Decreasing (f a) -- f must be monotone!
 -- Dec 4 = Dec 4
 
 -- | If @a@ is Ord and we know we get more of them over time.
-newtype Growing a = Growing { growing :: Set a }
+newtype GrowingSet a = GrowingSet { growing :: Set a }
 
-deriving instance Eq a => Eq (Growing a)
-deriving instance Show a => Show (Growing a)
-deriving instance Ord a => Ord (Growing a)
+deriving instance Eq a => Eq (GrowingSet a)
+deriving instance Show a => Show (GrowingSet a)
+deriving instance Ord a => Ord (GrowingSet a)
 
-instance Ord a => Semigroup (Growing a) where
-    s1 <> s2 = Growing $ S.union (growing s1) (growing s2)
+instance Ord a => Semigroup (GrowingSet a) where
+    s1 <> s2 = GrowingSet $ S.union (growing s1) (growing s2)
 
-instance Ord a => Monoid (Growing a) where
-    mempty = Growing $ mempty
+instance Ord a => Monoid (GrowingSet a) where
+    mempty = GrowingSet $ mempty
 
-instance Ord a => JoinSemilattice (Growing a) where
+instance Ord a => JoinSemilattice (GrowingSet a) where
     (\/) = (<>)
-    Growing s1 /\ Growing s2 = Growing $ S.intersection s1 s2
+    GrowingSet s1 /\ GrowingSet s2 = GrowingSet $ S.intersection s1 s2
 
-instance Ord a => BoundedJoinSemilattice (Growing a) where
+instance Ord a => BoundedJoinSemilattice (GrowingSet a) where
     bottom = mempty
 
-instance Ord a => Based (Growing a) a where
-    jirelement = Growing . S.singleton
+instance Ord a => Based (GrowingSet a) a where
+    jirelement = GrowingSet . S.singleton
 
-propagateGrowth :: (Ord a, Ord b) => (a -> b) -> Growing a -> Growing b
-propagateGrowth f = Growing . S.map f . growing
+propagateGrowth :: (Ord a, Ord b) => (a -> b) -> GrowingSet a -> GrowingSet b
+propagateGrowth f = GrowingSet . S.map f . growing
 
 -- | If @a@ is Ord and we know we get fewer of them over time.
-newtype Shrinking a = Shrinking { shrinking :: Set a }
+newtype ShrinkingSet a = ShrinkingSet { shrinking :: Set a }
 
-deriving instance Eq a => Eq (Shrinking a)
+deriving instance Eq a => Eq (ShrinkingSet a)
 
-instance Ord a => Semigroup (Shrinking a) where
-    s1 <> s2 = Shrinking $ S.intersection (shrinking s1) (shrinking s2)
+instance Ord a => Semigroup (ShrinkingSet a) where
+    s1 <> s2 = ShrinkingSet $ S.intersection (shrinking s1) (shrinking s2)
 
-instance (Ord a, Enum a, Bounded a) => Monoid (Shrinking a) where
-    mempty = Shrinking $ S.fromList $ enumFromTo minBound maxBound
+instance (Ord a, Enum a, Bounded a) => Monoid (ShrinkingSet a) where
+    mempty = ShrinkingSet $ S.fromList $ enumFromTo minBound maxBound
 
-instance Ord a => JoinSemilattice (Shrinking a) where
+instance Ord a => JoinSemilattice (ShrinkingSet a) where
     (\/) = (<>)
-    Shrinking s1 /\ Shrinking s2 = Shrinking $ S.union s1 s2
+    ShrinkingSet s1 /\ ShrinkingSet s2 = ShrinkingSet $ S.union s1 s2
 
-instance (Ord a, Enum a, Bounded a) => BoundedJoinSemilattice (Shrinking a) where
+instance (Ord a, Enum a, Bounded a) => BoundedJoinSemilattice (ShrinkingSet a) where
     bottom = mempty
 
-instance (Ord a, Enum a, Bounded a) => Based (Shrinking a) a where
-    jirelement a = Shrinking $ S.delete a (S.fromList $ enumFromTo minBound maxBound)
+instance (Ord a, Enum a, Bounded a) => Based (ShrinkingSet a) a where
+    jirelement a = ShrinkingSet $ S.delete a (S.fromList $ enumFromTo minBound maxBound)
 
-propagateShrink :: (Ord a, Ord b) => (a -> b) -> Shrinking a -> Shrinking b
-propagateShrink f = Shrinking . S.map f . shrinking
+propagateShrink :: (Ord a, Ord b) => (a -> b) -> ShrinkingSet a -> ShrinkingSet b
+propagateShrink f = ShrinkingSet . S.map f . shrinking
 
 -- | If @a@ is Ord and we know we it should stay the same over time.
 -- newtype Same a = Same { same :: Either [a] a }
@@ -409,25 +391,34 @@ instance Based a b => Based (Identity a) b where
     jirelement = Identity . jirelement
 
 --
-instance (Ord k, JoinSemilattice v) => JoinSemilattice (M.Map k v) where
-    (\/) = M.unionWith (\/)
-    (/\) = M.intersectionWith (/\)
+newtype GrowingMap k v = GrowingMap { growingMap :: M.Map k v}
 
-instance (Ord k, BoundedJoinSemilattice v) => BoundedJoinSemilattice (M.Map k v) where
-    bottom = mempty
+deriving instance (Eq k, Eq v) => Eq (GrowingMap k v)
+deriving instance (Show k, Show v) => Show (GrowingMap k v)
 
-instance (Ord k, BoundedJoinSemilattice v) => Based (M.Map k v) (k, v) where
-    jirelement (k, v) = M.singleton k v
+instance (Ord k, JoinSemilattice v) => JoinSemilattice (GrowingMap k v) where
+    GrowingMap m1 \/ GrowingMap m2 = GrowingMap $ M.unionWith (\/) m1 m2
+    GrowingMap m1 /\ GrowingMap m2 = GrowingMap $ M.intersectionWith (/\) m1 m2
 
-propagateMap :: (Ord k, Ord k', JoinSemilattice v) => (v -> v -> v) -- | must be monotone
-    -> (k -> k') -> M.Map k v -> M.Map k' v
-propagateMap = M.mapKeysWith
+instance (Ord k, BoundedJoinSemilattice v) => BoundedJoinSemilattice (GrowingMap k v) where
+    bottom = GrowingMap mempty
 
-propagateMapEntry :: (Ord k, BoundedJoinSemilattice s) => k -> M.Map k s -> s
-propagateMapEntry k m = fromMaybe bottom $ M.lookup k m
+instance (Ord k, BoundedJoinSemilattice v) => Based (GrowingMap k v) (k, v) where
+    jirelement (k, v) = GrowingMap $ M.singleton k v
 
-propagateMapKeys :: (Ord k, BoundedJoinSemilattice s) => M.Map k s -> Growing k
-propagateMapKeys = Growing . M.keysSet 
+-- propagateMap :: (Ord k, Ord k', JoinSemilattice v) => (v -> v -> v) -- | must be monotone
+--     -> (k -> k') -> GrowingMap k v -> GrowingMap k' v
+-- propagateMap = M.mapKeysWith
+
+propagateMapEntry :: (Ord k, BoundedJoinSemilattice s) => k -> GrowingMap k s -> s
+propagateMapEntry k m = fromMaybe bottom $ M.lookup k $ growingMap m
+
+propagateMapKeys :: (Ord k, BoundedJoinSemilattice s) => GrowingMap k s -> GrowingSet k
+propagateMapKeys = GrowingSet . M.keysSet . growingMap
+
+propagateMap :: (Ord k, BoundedJoinSemilattice s, BoundedJoinSemilattice s') => (s -> s') -> GrowingMap k s -> GrowingMap k s' 
+propagateMap homo = GrowingMap . fmap homo . growingMap
+
 
 --
 instance JoinSemilattice a => JoinSemilattice [a] where
@@ -529,19 +520,19 @@ propagateHomo f as = f $ bjsconcat as
 --
 
 data E s where
-    E :: (Ord s, BoundedJoinSemilattice s) => Growing s -> E s
+    E :: (Ord s, BoundedJoinSemilattice s) => GrowingSet s -> E s
 
-pHomo :: (BoundedJoinSemilattice a) => (a -> b) -> Growing a -> b
+pHomo :: (BoundedJoinSemilattice a) => (a -> b) -> GrowingSet a -> b
 pHomo f g = f $ join g
 
-pMono :: (BoundedJoinSemilattice a, BoundedJoinSemilattice b, Ord b) => (a -> b) -> Growing a -> b
+pMono :: (BoundedJoinSemilattice a, BoundedJoinSemilattice b, Ord b) => (a -> b) -> GrowingSet a -> b
 pMono f g = bjsconcat $ S.map f (Semilattice.all g)
 
-join :: (BoundedJoinSemilattice s) => Growing s -> s
-join (Growing ss) = bjsconcat ss
+join :: (BoundedJoinSemilattice s) => GrowingSet s -> s
+join (GrowingSet ss) = bjsconcat ss
 
-all :: (BoundedJoinSemilattice s) => Growing s -> S.Set s
-all (Growing ss) = ss
+all :: (BoundedJoinSemilattice s) => GrowingSet s -> S.Set s
+all (GrowingSet ss) = ss
 
 
 -- instance Eq (E s) where
@@ -560,5 +551,5 @@ all (Growing ss) = ss
 --     fmap = undefined 
 
 -- instance Comonad E where
---     extract (E (Growing ss)) = bjsconcat ss
---     duplicate (E (Growing ss)) = E $ Growing $ S.map (\s -> E (Growing (S.singleton s))) ss
+--     extract (E (GrowingSet ss)) = bjsconcat ss
+--     duplicate (E (GrowingSet ss)) = E $ GrowingSet $ S.map (\s -> E (GrowingSet (S.singleton s))) ss

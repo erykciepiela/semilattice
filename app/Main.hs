@@ -1,7 +1,6 @@
 module Main where
 
 import Semilattice
-import Data.Map as M
 import Data.Maybe
 import Data.String
 import Control.Monad
@@ -25,21 +24,21 @@ type PositionInVan = Int
 type PositionInShipment = Int
 
 -- bounded join semilattices - objects
-type Bag = Map SkuId (Increasing Qty)
+type Bag = GrowingMap SkuId (Increasing Qty)
 
-type DT = Map PositionInDT Bag
+type DT = GrowingMap PositionInDT Bag
 
-type Frame = Map PositionInFrame (Same LPN, DT)
+type Frame = GrowingMap PositionInFrame (Same LPN, DT)
 
-type Van = Map PositionInVan (Same LPN, Frame)
+type Van = GrowingMap PositionInVan (Same LPN, Frame)
 
-type Shipment = Map PositionInShipment (Same LPN, Van)
+type Shipment = GrowingMap PositionInShipment (Same LPN, Van)
 
-type FrameGoal = Map PositionInFrame DT
+type FrameGoal = GrowingMap PositionInFrame DT
 
-type VanGoal = Map PositionInVan FrameGoal
+type VanGoal = GrowingMap PositionInVan FrameGoal
 
-type ShipmentGoal = Map PositionInShipment VanGoal
+type ShipmentGoal = GrowingMap PositionInShipment VanGoal
 
 -- homomorphisms - morphisms
 bag :: SkuId -> Qty -> Bag
@@ -61,27 +60,27 @@ vanLoaded :: PositionInShipment -> LPN -> Shipment
 vanLoaded pishipment vanLpn = jirelement (pishipment, jirelement (Left vanLpn))
 
 frameToGoal :: Frame -> FrameGoal
-frameToGoal = fmap snd
+frameToGoal = propagateMap snd
 
 vanToGoal :: Van -> VanGoal
-vanToGoal = fmap $ frameToGoal . snd
+vanToGoal = propagateMap $ frameToGoal . snd
 
 pickedShipment :: Shipment -> ShipmentGoal
-pickedShipment = fmap $ vanToGoal . snd
+pickedShipment = propagateMap $ vanToGoal . snd
 
 pickGoal :: PositionInShipment -> PositionInVan -> PositionInFrame -> PositionInDT -> SkuId -> Qty -> ShipmentGoal
 pickGoal pishipment pivan piframe pidt skuId qty = jirelement (pishipment, jirelement (pivan, jirelement (piframe, jirelement (pidt, jirelement (skuId, Increasing qty)))))
 
 -- is this homomorphism?
 frameloadedVan :: Van -> VanGoal 
-frameloadedVan = fmap $ \(slpn, f) -> case slpn of Unknown -> bottom; Unambiguous _ -> frameToGoal f; Ambiguous _ -> bottom;
+frameloadedVan = propagateMap $ \(slpn, f) -> case slpn of Unknown -> bottom; Unambiguous _ -> frameToGoal f; Ambiguous _ -> bottom;
 
 frameloadedShipment :: Shipment -> ShipmentGoal
-frameloadedShipment = fmap $ frameloadedVan . snd
+frameloadedShipment = propagateMap $ frameloadedVan . snd
 
 -- is this homomorphism?
 vanloadedShipment :: Shipment -> ShipmentGoal
-vanloadedShipment = fmap $ \(slpn, g) -> case slpn of Unknown -> bottom; Unambiguous _ -> vanToGoal g; Ambiguous _ -> bottom;
+vanloadedShipment = propagateMap $ \(slpn, g) -> case slpn of Unknown -> bottom; Unambiguous _ -> vanToGoal g; Ambiguous _ -> bottom;
 
 --
 
@@ -115,7 +114,7 @@ main = do
             [
                 vanLoaded 0 "V1"
             ]
-    let expected = fromList [(0,("V1",fromList [(0,("F1",fromList [(0,("DT1",fromList [(0,fromList [("apple", 3),("coconut", 2)]),(1,fromList [("banana", 4)]),(2,fromList [("donut", 5)])])),(1,("DT2",fromList [(0,fromList [("cucumber", 7)])]))]))]))]
+    let expected = bconcat [(0,("V1",bconcat [(0,("F1",bconcat [(0,("DT1",bconcat [(0,bconcat [("apple", 3),("coconut", 2)]),(1,bconcat [("banana", 4)]),(2,bconcat [("donut", 5)])])),(1,("DT2",bconcat [(0,bconcat [("cucumber", 7)])]))]))]))]
     print $ test 10000 4 expected $ mconcat [vanLoadZoneEvents, frameLoadZoneEvents, pickZoneEvents] -- True
     let expected' = bag "apple" 3 \/ bag "coconut" 2
     print $ test 10000 4 expected' $ propagateBag <$> mconcat [vanLoadZoneEvents, frameLoadZoneEvents, pickZoneEvents] -- True
