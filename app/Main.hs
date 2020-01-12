@@ -40,7 +40,7 @@ type VanGoal = GrowingMap PositionInVan FrameGoal
 
 type ShipmentGoal = GrowingMap PositionInShipment VanGoal
 
--- homomorphisms - morphisms
+-- join-irreducible elements
 bag :: SkuId -> Qty -> Bag
 bag skuId qty = jirelement (skuId, Increasing qty)
 
@@ -59,6 +59,10 @@ frameLoaded pishipment pivan frameLpn = jirelement (pishipment, (bottom, jirelem
 vanLoaded :: PositionInShipment -> LPN -> Shipment
 vanLoaded pishipment vanLpn = jirelement (pishipment, jirelement (Left vanLpn))
 
+-- homomorphisms - morphisms
+propagateBag :: PositionInShipment -> PositionInVan -> PositionInFrame -> PositionInDT -> Homo Shipment Bag
+propagateBag piShipment piVan piFrame piDT = propagateMapEntry piDT . propagateSnd . propagateMapEntry piFrame . propagateSnd . propagateMapEntry piVan . propagateSnd . propagateMapEntry piShipment 
+
 frameToGoal :: Homo Frame FrameGoal
 frameToGoal = propagateMap propagateSnd
 
@@ -68,8 +72,8 @@ vanToGoal = propagateMap $ frameToGoal . propagateSnd
 pickedShipment :: Homo Shipment ShipmentGoal
 pickedShipment = propagateMap $ vanToGoal . propagateSnd
 
-pickGoal :: PositionInShipment -> PositionInVan -> PositionInFrame -> PositionInDT -> SkuId -> Qty -> ShipmentGoal
-pickGoal pishipment pivan piframe pidt skuId qty = jirelement (pishipment, jirelement (pivan, jirelement (piframe, jirelement (pidt, jirelement (skuId, Increasing qty)))))
+-- pickGoal :: PositionInShipment -> PositionInVan -> PositionInFrame -> PositionInDT -> SkuId -> Qty -> ShipmentGoal
+-- pickGoal pishipment pivan piframe pidt skuId qty = jirelement (pishipment, jirelement (pivan, jirelement (piframe, jirelement (pidt, jirelement (skuId, Increasing qty)))))
 
 -- is this homomorphism?
 -- frameloadedVan :: Van -> VanGoal 
@@ -119,8 +123,6 @@ main = do
     let expected' = bag "apple" 3 \/ bag "coconut" 2
     print $ test 10000 4 expected' $ homo (propagateBag 0 0 0 0) <$> mconcat [vanLoadZoneEvents, frameLoadZoneEvents, pickZoneEvents] -- True
 
-propagateBag :: PositionInShipment -> PositionInVan -> PositionInFrame -> PositionInDT -> Homo Shipment Bag
-propagateBag piShipment piVan piFrame piDT = propagateMapEntry piDT . propagateSnd . propagateMapEntry piFrame . propagateSnd . propagateMapEntry piVan . propagateSnd . propagateMapEntry piShipment 
 
 --
 -- --- new b --   old b
