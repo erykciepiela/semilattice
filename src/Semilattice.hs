@@ -2,6 +2,7 @@ module Semilattice (
     JoinSemilattice(..),
     BoundedJoinSemilattice(..),
     NestedSemilattice(..),
+    en,
     (+>),
     (<+),
     (<<+),
@@ -71,6 +72,15 @@ instance (Ord k, BoundedJoinSemilattice s) => NestedSemilattice (M.Map k s) wher
 instance (NestedSemilattice a, NestedSemilattice b) => NestedSemilattice (a, b) where
     enrich (a, b) (a', b') = (enrich a a', enrich b b')
     strip (a, b) (a', b') = (strip a a', strip b b')
+
+en ::(NestedSemilattice s, Based s b) => b -> s -> s
+en b = enrich (jirelement b)
+
+push ::(JoinSemilattice s, Based s b) => b -> s -> s
+push b = (\/ jirelement b)
+
+pull ::(JoinSemilattice s, Based s b) => b -> s -> s
+pull b = (/\ jirelement b)
 
 bjsconcatS :: (Ord s, BoundedJoinSemilattice s) => S.Set s -> s
 bjsconcatS = S.foldr (\/) bottom
@@ -415,6 +425,9 @@ propagateMap = M.mapKeysWith
 
 propagateMapEntry :: (Ord k, BoundedJoinSemilattice s) => k -> M.Map k s -> s
 propagateMapEntry k m = fromMaybe bottom $ M.lookup k m
+
+propagateMapKeys :: (Ord k, BoundedJoinSemilattice s) => M.Map k s -> Growing k
+propagateMapKeys = Growing . M.keysSet 
 
 --
 instance JoinSemilattice a => JoinSemilattice [a] where

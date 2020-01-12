@@ -117,10 +117,11 @@ main = do
             ]
     let expected = fromList [(0,("V1",fromList [(0,("F1",fromList [(0,("DT1",fromList [(0,fromList [("apple", 3),("coconut", 2)]),(1,fromList [("banana", 4)]),(2,fromList [("donut", 5)])])),(1,("DT2",fromList [(0,fromList [("cucumber", 7)])]))]))]))]
     print $ test 10000 4 expected $ mconcat [vanLoadZoneEvents, frameLoadZoneEvents, pickZoneEvents] -- True
-    -- print $ bjsconcat $ vanloadedShipment <$> mconcat [vanLoadZoneEvents, frameLoadZoneEvents, pickZoneEvents] -- True
-    -- print $ vanloadedShipment $ bjsconcat $ mconcat [vanLoadZoneEvents, frameLoadZoneEvents, pickZoneEvents] -- True
-    print $ enrich (fromList [(0,("V1",fromList [(0,("F1",fromList [(0,("DT1", fromList [(0, fromList [("apple", 0)])]))]))]))]) expected
-    -- print $ enrich (fromList [(0,("V1",fromList [(0,("F1",fromList [(0,("DT1",bottom))]))]))]) expected
+    let expected' = bag "apple" 3 \/ bag "coconut" 2
+    print $ test 10000 4 expected' $ propagateBag <$> mconcat [vanLoadZoneEvents, frameLoadZoneEvents, pickZoneEvents] -- True
+
+propagateBag :: Shipment -> Bag
+propagateBag = propagateMapEntry 0 . snd . propagateMapEntry 0 . snd . propagateMapEntry 0 . snd . propagateMapEntry 0 
 
 --
 -- --- new b --   old b
