@@ -155,6 +155,8 @@ homo2mono h = Mono $ homo h
 foo :: Homo a b -> Mono b c -> Mono a c
 foo h m = m . homo2mono h
 
+data Proc a b c = Proc { phomo :: Homo a b, pmono :: Mono b c}
+
 -- 
 instance JoinSemilattice () where
     (\/) = (<>)
