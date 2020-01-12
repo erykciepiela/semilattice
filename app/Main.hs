@@ -1,11 +1,9 @@
 module Main where
 
 import Prelude hiding ((.), id)
-import Semilattice
-import Data.Maybe
-import Data.String
-import Control.Monad
 import Control.Category
+import Semilattice
+import Data.String
 import Data.List as L
 
 type SkuId = String
