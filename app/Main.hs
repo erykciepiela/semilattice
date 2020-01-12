@@ -1,9 +1,11 @@
 module Main where
 
+import Prelude hiding ((.), id)
 import Semilattice
 import Data.Maybe
 import Data.String
 import Control.Monad
+import Control.Category
 import Data.List as L
 
 type SkuId = String
@@ -59,28 +61,28 @@ frameLoaded pishipment pivan frameLpn = jirelement (pishipment, (bottom, jirelem
 vanLoaded :: PositionInShipment -> LPN -> Shipment
 vanLoaded pishipment vanLpn = jirelement (pishipment, jirelement (Left vanLpn))
 
-frameToGoal :: Frame -> FrameGoal
-frameToGoal = propagateMap snd
+frameToGoal :: Homo Frame FrameGoal
+frameToGoal = propagateMap propagateSnd
 
-vanToGoal :: Van -> VanGoal
-vanToGoal = propagateMap $ frameToGoal . snd
+vanToGoal :: Homo Van VanGoal
+vanToGoal = propagateMap $ frameToGoal . propagateSnd
 
-pickedShipment :: Shipment -> ShipmentGoal
-pickedShipment = propagateMap $ vanToGoal . snd
+pickedShipment :: Homo Shipment ShipmentGoal
+pickedShipment = propagateMap $ vanToGoal . propagateSnd
 
 pickGoal :: PositionInShipment -> PositionInVan -> PositionInFrame -> PositionInDT -> SkuId -> Qty -> ShipmentGoal
 pickGoal pishipment pivan piframe pidt skuId qty = jirelement (pishipment, jirelement (pivan, jirelement (piframe, jirelement (pidt, jirelement (skuId, Increasing qty)))))
 
 -- is this homomorphism?
-frameloadedVan :: Van -> VanGoal 
-frameloadedVan = propagateMap $ \(slpn, f) -> case slpn of Unknown -> bottom; Unambiguous _ -> frameToGoal f; Ambiguous _ -> bottom;
+-- frameloadedVan :: Van -> VanGoal 
+-- frameloadedVan = propagateMap $ \(slpn, f) -> case slpn of Unknown -> bottom; Unambiguous _ -> frameToGoal f; Ambiguous _ -> bottom;
 
-frameloadedShipment :: Shipment -> ShipmentGoal
-frameloadedShipment = propagateMap $ frameloadedVan . snd
+-- frameloadedShipment :: Shipment -> ShipmentGoal
+-- frameloadedShipment = propagateMap $ frameloadedVan . snd
 
 -- is this homomorphism?
-vanloadedShipment :: Shipment -> ShipmentGoal
-vanloadedShipment = propagateMap $ \(slpn, g) -> case slpn of Unknown -> bottom; Unambiguous _ -> vanToGoal g; Ambiguous _ -> bottom;
+-- vanloadedShipment :: Shipment -> ShipmentGoal
+-- vanloadedShipment = propagateMap $ \(slpn, g) -> case slpn of Unknown -> bottom; Unambiguous _ -> vanToGoal g; Ambiguous _ -> bottom;
 
 --
 
@@ -117,10 +119,10 @@ main = do
     let expected = bconcat [(0,("V1",bconcat [(0,("F1",bconcat [(0,("DT1",bconcat [(0,bconcat [("apple", 3),("coconut", 2)]),(1,bconcat [("banana", 4)]),(2,bconcat [("donut", 5)])])),(1,("DT2",bconcat [(0,bconcat [("cucumber", 7)])]))]))]))]
     print $ test 10000 4 expected $ mconcat [vanLoadZoneEvents, frameLoadZoneEvents, pickZoneEvents] -- True
     let expected' = bag "apple" 3 \/ bag "coconut" 2
-    print $ test 10000 4 expected' $ propagateBag <$> mconcat [vanLoadZoneEvents, frameLoadZoneEvents, pickZoneEvents] -- True
+    print $ test 10000 4 expected' $ homo (propagateBag 0 0 0 0) <$> mconcat [vanLoadZoneEvents, frameLoadZoneEvents, pickZoneEvents] -- True
 
-propagateBag :: Shipment -> Bag
-propagateBag = propagateMapEntry 0 . snd . propagateMapEntry 0 . snd . propagateMapEntry 0 . snd . propagateMapEntry 0 
+propagateBag :: PositionInShipment -> PositionInVan -> PositionInFrame -> PositionInDT -> Homo Shipment Bag
+propagateBag piShipment piVan piFrame piDT = propagateMapEntry piDT . propagateSnd . propagateMapEntry piFrame . propagateSnd . propagateMapEntry piVan . propagateSnd . propagateMapEntry piShipment 
 
 --
 -- --- new b --   old b

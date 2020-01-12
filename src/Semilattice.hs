@@ -12,6 +12,7 @@ module Semilattice (
     ascendsTowards,
     ascendsTo,    
     isDescending,
+    Homo(..),
     Based(..),
     bconcat,
     -- | Primitive bjsconcat semilattices 
@@ -30,7 +31,10 @@ module Semilattice (
     GrowingMap(..),
     propagateMap,
     propagateMapEntry,
-    propagateListElement
+    propagateListElement,
+    --
+    propagateFst,
+    propagateSnd
 ) where
 
 import Prelude hiding (id, (.))
@@ -128,6 +132,13 @@ class BoundedJoinSemilattice s => Based s b | s -> b where
 
 bconcat :: Based s b => [b] -> s
 bconcat bs = bjsconcat $ jirelement <$> bs
+
+--
+newtype Homo a b = Homo { homo :: a -> b }
+
+instance Category Homo where
+    id = Homo id
+    h1 . h2 = Homo $ homo h1 . homo h2 
 
 -- 
 instance JoinSemilattice () where
@@ -406,11 +417,11 @@ instance (Ord k, BoundedJoinSemilattice v) => BoundedJoinSemilattice (GrowingMap
 instance (Ord k, BoundedJoinSemilattice v) => Based (GrowingMap k v) (k, v) where
     jirelement (k, v) = GrowingMap $ M.singleton k v
 
-propagateMap :: (Ord k, BoundedJoinSemilattice s, BoundedJoinSemilattice s') => (s -> s') -> GrowingMap k s -> GrowingMap k s' 
-propagateMap homo = GrowingMap . fmap homo . growingMap
+propagateMap :: (Ord k, BoundedJoinSemilattice s, BoundedJoinSemilattice s') => Homo s s' -> Homo (GrowingMap k s) (GrowingMap k s')
+propagateMap h = Homo $ GrowingMap . fmap (homo h) . growingMap
 
-propagateMapEntry :: (Ord k, BoundedJoinSemilattice s) => k -> GrowingMap k s -> s
-propagateMapEntry k m = fromMaybe bottom $ M.lookup k $ growingMap m
+propagateMapEntry :: (Ord k, BoundedJoinSemilattice s) => k -> Homo (GrowingMap k s) s
+propagateMapEntry k = Homo $ fromMaybe bottom . M.lookup k . growingMap
 
 propagateMapKeys :: (Ord k, BoundedJoinSemilattice s) => GrowingMap k s -> GrowingSet k
 propagateMapKeys = GrowingSet . M.keysSet . growingMap
@@ -438,6 +449,12 @@ propagateListElement i l
 instance (JoinSemilattice a, JoinSemilattice b) => JoinSemilattice (a, b) where
     (a1, b1) \/ (a2, b2) = (a1 \/ a2, b1 \/ b2)
     (a1, b1) /\ (a2, b2) = (a1 /\ a2, b1 /\ b2)
+
+propagateFst :: (JoinSemilattice a, JoinSemilattice b) => Homo (a, b) a
+propagateFst = Homo fst
+
+propagateSnd :: (JoinSemilattice a, JoinSemilattice b) => Homo (a, b) b
+propagateSnd = Homo snd
 
 instance (BoundedJoinSemilattice a, BoundedJoinSemilattice b) => BoundedJoinSemilattice (a, b) where
     bottom = (bottom, bottom)
