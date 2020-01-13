@@ -5,6 +5,7 @@ import Control.Category
 import Semilattice
 import Data.String
 import Data.List as L
+import Data.Set as S
 
 type SkuId = String
 type Qty = Int
@@ -67,7 +68,10 @@ shipmentFrame :: PositionInShipment -> PositionInVan -> Homo Shipment Frame
 shipmentFrame piShipment piVan = propagateSnd . propagateMapEntry piVan . shipmentVan piShipment 
 
 shipmentDT :: PositionInShipment -> PositionInVan -> PositionInFrame -> Homo Shipment DT
-shipmentDT piShipment piVan piFrame = propagateSnd . propagateMapEntry piFrame . shipmentFrame piVan piFrame
+shipmentDT piShipment piVan piFrame = propagateSnd . propagateMapEntry piFrame . shipmentFrame piShipment piVan
+
+shipmentDTLPN :: PositionInShipment -> PositionInVan -> PositionInFrame -> Homo Shipment (Same LPN)
+shipmentDTLPN piShipment piVan piFrame = propagateFst . propagateMapEntry piFrame . shipmentFrame piShipment piVan
 
 shipmentBag :: PositionInShipment -> PositionInVan -> PositionInFrame -> PositionInDT -> Homo Shipment Bag
 shipmentBag piShipment piVan piFrame piDT = propagateMapEntry piDT . shipmentDT piShipment piVan piFrame
@@ -110,6 +114,7 @@ main = do
     print $ test 10000 4 expected $ mconcat [vanLoadZoneEvents, frameLoadZoneEvents, pickZoneEvents] -- True
     let expected' = bag "apple" 3 \/ bag "coconut" 2
     print $ test 10000 4 expected' $ homo (shipmentBag 0 0 0 0) <$> mconcat [vanLoadZoneEvents, frameLoadZoneEvents, pickZoneEvents] -- True
+    print $ runProc (Proc (shipmentDTLPN 0 0 1) id) $ mconcat [vanLoadZoneEvents, frameLoadZoneEvents, pickZoneEvents] -- True
 
 
 --

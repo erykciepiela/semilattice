@@ -29,6 +29,8 @@ default-extensions:
 - AllowAmbiguousTypes
 - UndecidableInstances
 - OverloadedStrings
+- ExistentialQuantification
+
 
 dependencies:
 - base >= 4.7 && < 5

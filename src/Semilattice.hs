@@ -14,6 +14,8 @@ module Semilattice (
     isDescending,
     Homo(..),
     Based(..),
+    Proc(..),
+    runProc,
     bconcat,
     -- | Primitive bjsconcat semilattices 
     Increasing(..),
@@ -149,14 +151,28 @@ instance Category Mono where
     id = Mono id
     m1 . m2 = Mono $ mono m1 . mono m2 
 
-homo2mono :: Homo a b -> Mono a b
-homo2mono h = Mono $ homo h
+-- data ProcM a b = forall s. BoundedJoinSemilattice s => ProcM { pmhomo :: Homo a s, pmmono :: Mono s b }
 
-foo :: Homo a b -> Mono b c -> Mono a c
-foo h m = m . homo2mono h
+data Proc a b = forall s. BoundedJoinSemilattice s => Proc { phomo :: Homo a s, pf :: s -> b }
 
-data Proc a b c = Proc { phomo :: Homo a b, pmono :: Mono b c}
+runProc :: Proc a b -> [a] -> [b]
+runProc (Proc (Homo h) m) as = m <$> bjsscan (h <$> as)
 
+instance Functor (Proc a) where
+    fmap f (Proc h g) = Proc h (f . g)
+
+foo :: Homo a ()
+foo = Homo (const ())
+
+instance Applicative (Proc a) where
+    pure b = Proc foo (const b)
+    (Proc fh fm) <*> (Proc ah am) = Proc (Homo $ \i -> (homo fh i, homo ah i)) (\(fs, as) -> fm fs (am as))
+
+procid :: BoundedJoinSemilattice a => Proc a a
+procid = Proc id id
+
+procbimap :: Homo a' a -> (b -> b') -> Proc a b -> Proc a' b'
+procbimap h m (Proc ph pm) = Proc (ph . h) (m . pm)
 -- 
 instance JoinSemilattice () where
     (\/) = (<>)
@@ -310,14 +326,14 @@ propagateDecrease f (Decreasing a) = Decreasing (f a) -- f must be monotone!
 -- Dec 4 = Dec 4
 
 -- | If @a@ is Ord and we know we get more of them over time.
-newtype GrowingSet a = GrowingSet { growing :: Set a }
+newtype GrowingSet a = GrowingSet { growingSet :: Set a }
 
 deriving instance Eq a => Eq (GrowingSet a)
 deriving instance Show a => Show (GrowingSet a)
 deriving instance Ord a => Ord (GrowingSet a)
 
 instance Ord a => Semigroup (GrowingSet a) where
-    s1 <> s2 = GrowingSet $ S.union (growing s1) (growing s2)
+    s1 <> s2 = GrowingSet $ S.union (growingSet s1) (growingSet s2)
 
 instance Ord a => Monoid (GrowingSet a) where
     mempty = GrowingSet $ mempty
@@ -333,7 +349,7 @@ instance Ord a => Based (GrowingSet a) a where
     jirelement = GrowingSet . S.singleton
 
 propagateGrowth :: (Ord a, Ord b) => (a -> b) -> GrowingSet a -> GrowingSet b
-propagateGrowth f = GrowingSet . S.map f . growing
+propagateGrowth f = GrowingSet . S.map f . growingSet
 
 -- | If @a@ is Ord and we know we get fewer of them over time.
 newtype ShrinkingSet a = ShrinkingSet { shrinking :: Set a }
