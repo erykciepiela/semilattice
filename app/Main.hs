@@ -35,18 +35,12 @@ type Van = GrowingMap PositionInVan (Same LPN, Frame)
 
 type Shipment = GrowingMap PositionInShipment (Same LPN, Van)
 
-type FrameGoal = GrowingMap PositionInFrame DT
-
-type VanGoal = GrowingMap PositionInVan FrameGoal
-
-type ShipmentGoal = GrowingMap PositionInShipment VanGoal
-
 -- join-irreducible elements
 bag :: SkuId -> Qty -> Bag
-bag skuId qty = jirelement (skuId, Increasing qty)
+bag skuId qty = jirelement (skuId, jirelement qty)
 
-dt :: Int -> Bag -> DT
-dt pidt b = jirelement (pidt, b)
+dt :: PositionInDT -> Bag -> DT
+dt pidt bag = jirelement (pidt, bag)
 
 bagPicked :: PositionInShipment -> PositionInVan -> PositionInFrame -> PositionInDT -> SkuId -> Qty -> Shipment
 bagPicked pishipment pivan piframe pidt skuId qty = jirelement (pishipment, (bottom, jirelement (pivan, (bottom, jirelement (piframe, jirelement (Right (pidt, jirelement (skuId, jirelement qty))))))))
@@ -115,10 +109,3 @@ main = do
     let expected' = bag "apple" 3 \/ bag "coconut" 2
     print $ test 10000 4 expected' $ homo (shipmentBag 0 0 0 0) <$> mconcat [vanLoadZoneEvents, frameLoadZoneEvents, pickZoneEvents] -- True
     print $ runProc (Proc (shipmentDTLPN 0 0 1) id) $ mconcat [vanLoadZoneEvents, frameLoadZoneEvents, pickZoneEvents] -- True
-
-
---
--- --- new b --   old b
--- f (a1 \/ a2) = f a1 \/ f a2 -- we only need last arrived a2, perform f against only a2, and merge with f a2
--- otherwise we need bjsconcat of all as, perform f against as
-
