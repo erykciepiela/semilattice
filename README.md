@@ -64,4 +64,8 @@
         1. `Same a` is a (union) type that can have value `Unknown`, `Unambiguous a` or `Ambiguous`
         1. `Same a` is BJS as long as we can compare `a`s - `instance Eq a`
         1. Note we can get the same `Unambiguous a` multiple times without contradiction (what are `\/` and `0`?)
+    1. Mappings between BJSs
+    1. SemiLat category
+        1. BJSs as objects
+        2. Homomorphisms between BJSs as arrows 
     
