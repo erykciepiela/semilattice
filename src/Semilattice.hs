@@ -35,7 +35,6 @@ module Semilattice (
     propagateMapEntry,
     propagateMapKeys,
     propagateMapValues,
-    propagateListElement,
     --
     propagateFst,
     propagateSnd
@@ -55,15 +54,33 @@ import Data.IORef
 import Control.Comonad
 import Data.String
 
-class JoinSemilattice s where
-    -- a \/ (b  \/ c) = (a \/ n) \/ c - associativity
-    -- a \/ b = b \/ a - commutativity, saves us from out of order messages problem
-    -- a \/ a = a idempotence, saves us from exactly-once delivery guarantee problem
-    -- a \/ b >= a 
-    -- a \/ b >= b 
+class POrd p where
+    -- a +> a -- reflexivity
+    -- a +> b +> c => a +> c - transitivity
+    (+>) :: p -> p -> Bool -- minimal definition
+    (<+) :: p -> p -> Bool
+    (<+) = flip (+>)
+    (<+>) :: p -> p -> Bool -- are two ps comparable
+    a <+> b = a +> b || a <+ b
+    (>+<) :: p -> p -> Bool -- are two ps not comparable
+    a >+< b = not $ a <+> b
+    (=+=) :: p -> p -> Bool -- are two ps equal
+    a =+= b = a +> b && b <+ a
+    (+>>) :: p -> p -> Bool
+    a +>> b = a +> b && not (a =+= b)
+    (<<+) :: p -> p -> Bool
+    (<<+) = flip (+>>)
+
+class POrd s => JoinSemilattice s where
+    -- a \/ (b  \/ c) = (a \/ b) \/ c - associativity
+    -- a \/ b = b \/ a - commutativity
+    -- a \/ a = a idempotence
+    -- a \/ b == a <=> a +> b 
+    -- a \/ b == b <=> a <+ b 
     (\/) :: s -> s -> s
 
 class JoinSemilattice s => BoundedJoinSemilattice s where
+    -- a \/ bottom == a == bottom \/ a
     bottom :: s
 
 bjsconcatS :: (Ord s, BoundedJoinSemilattice s) => S.Set s -> s
@@ -79,21 +96,6 @@ bjsscan = scanl' (\/) bottom
 bjsconcat'' :: (Foldable f, BoundedJoinSemilattice s, BoundedJoinSemilattice (f s)) => f s -> s
 bjsconcat'' = Prelude.foldr (\/) bottom
 
-(+>) :: (Eq s, BoundedJoinSemilattice s) => s -> s -> Bool
-s1 +> s2 = s1 \/ s2 == s1
-
-(+>>) :: (Eq s, BoundedJoinSemilattice s) => s -> s -> Bool
-s1 +>> s2 = s1 +> s2 && s1 /= s2
-
-(<+) :: (Eq s, BoundedJoinSemilattice s) => s -> s -> Bool
-(<+) = flip (+>)
-
-(<<+) :: (Eq s, BoundedJoinSemilattice s) => s -> s -> Bool
-s1 <<+ s2 = s1 <+ s2 && s1 /= s2
-
--- is comparable
-(<+>) :: (Eq s, BoundedJoinSemilattice s) => s -> s -> Bool
-s1 <+> s2 = s1 <+ s2 || s1 +> s2
 
 ascends :: (Eq s, BoundedJoinSemilattice s) => [s] -> Bool
 ascends ss = let ss' = bjsscan ss in isAscending ss'
@@ -170,7 +172,11 @@ procid = Proc id id
 
 procbimap :: Homo a' a -> (b -> b') -> Proc a b -> Proc a' b'
 procbimap h m (Proc ph pm) = Proc (ph . h) (m . pm)
--- 
+
+--
+instance POrd () where
+    () +> () = True
+
 instance JoinSemilattice () where
     (\/) = (<>)
 
@@ -181,47 +187,27 @@ instance Based () () where
     jirelement = id
 
 --
-instance Ord a => JoinSemilattice (Max a) where
-    (\/) = (<>)
+instance POrd a => POrd (Maybe a) where
+    Nothing +> Nothing = True
+    Nothing +> _ = False
+    _ +> Nothing = True
+    Just a +> Just b = a +> b
 
-instance (Ord a, Bounded a) => BoundedJoinSemilattice (Max a) where
-    bottom = mempty
+instance JoinSemilattice a => JoinSemilattice (Maybe a) where
+    Nothing \/ ma = ma
+    ma \/ Nothing = ma
+    Just a \/ Just b = Just (a \/ b)
 
-instance (Ord a, Bounded a) => Based (Max a) a where
-    jirelement = Max
+instance JoinSemilattice a => BoundedJoinSemilattice (Maybe a) where
+    bottom = Nothing
 
---
-instance Ord a => JoinSemilattice (Min a) where
-    (\/) = (<>)
-
-instance (Ord a, Bounded a) => BoundedJoinSemilattice (Min a) where
-    bottom = mempty
-
-instance (Ord a, Bounded a) => Based (Min a) a where
-    jirelement = Min
+instance JoinSemilattice a => Based (Maybe a) a where
+    jirelement = Just
 
 --
-instance JoinSemilattice All where
-    (\/) = (<>)
+instance POrd (Proxy a) where
+    Proxy +> Proxy = True
 
-instance BoundedJoinSemilattice All  where
-    bottom = mempty
-
-instance Based All Bool where
-    jirelement = All
-
---
-instance JoinSemilattice Any where
-    (\/) = (<>)
-
-instance BoundedJoinSemilattice Any  where
-    bottom = mempty
-
-instance Based Any Bool where
-    jirelement = Any
-
-
---
 instance JoinSemilattice (Proxy a) where
     (\/) = (<>)
 
@@ -231,33 +217,22 @@ instance BoundedJoinSemilattice (Proxy a) where
 instance Based (Proxy a) () where
     jirelement _ = Proxy
 
--- | If @a@ is Ord and Bounded and we know it increases in time.
--- | Equivalent to Max.
-newtype Increasing a = Increasing a -- { increasing :: a }
+--
+newtype Increasing a = Increasing { increasing :: a }
+
+deriving instance Show a => Show (Increasing a)
 
 instance Num a => Num (Increasing a) where
     fromInteger = Increasing . fromInteger
 
--- instance IsString a => IsString (Increasing a) where
---     fromString = Increasing . fromString
-
--- instance Num a => Num (Increasing a) where
-
-deriving instance Show a => Show (Increasing a)
-
-instance Ord a => Semigroup (Increasing a) where
-    (Increasing a) <> (Increasing b) = Increasing (Prelude.max a b)
-
-instance (Ord a, Bounded a) => Monoid (Increasing a) where
-    mempty = Increasing minBound
-
-deriving instance Eq a => Eq (Increasing a)
-
-instance Ord a => JoinSemilattice (Increasing a) where
-    (\/) = (<>)
+instance Ord a => POrd (Increasing a) where
+    (Increasing a) +> (Increasing b) = a >= b
     
+instance Ord a => JoinSemilattice (Increasing a) where
+    (Increasing a) \/ (Increasing b) = Increasing (max a b)
+
 instance (Ord a, Bounded a) => BoundedJoinSemilattice (Increasing a) where
-    bottom = mempty
+    bottom = Increasing minBound
 
 instance (Ord a, Bounded a) => Based (Increasing a) a where
     jirelement = Increasing
@@ -280,23 +255,19 @@ propagateIncrease2 f (Increasing a) (Increasing b) = Increasing (f a b) -- f mus
 -- (I 5) \/ (I 4) = (I 2) \/ (I 3) \/ (I 5) \/ (I 4) 
 -- I 5 = I 5
 
--- | If @a@ is Ord and Bounded and we know it decreases in time.
--- | Equivalent to Min.
+--
 newtype Decreasing a = Decreasing { decreasing :: a }
 
-instance Ord a => Semigroup (Decreasing a) where
-    (Decreasing a) <> (Decreasing b) = Decreasing (Prelude.min a b)
+deriving instance Show a => Show (Decreasing a)
 
-instance (Ord a, Bounded a) => Monoid (Decreasing a) where
-    mempty = Decreasing maxBound
-
-deriving instance Eq a => Eq (Decreasing a)
+instance Ord a => POrd (Decreasing a) where
+    Decreasing a +> Decreasing b = a <= b
 
 instance Ord a => JoinSemilattice (Decreasing a) where
-    (\/) = (<>)
+    (Decreasing a) \/ (Decreasing b) = Decreasing (min a b)
 
 instance (Ord a, Bounded a) => BoundedJoinSemilattice (Decreasing a) where
-    bottom = mempty
+    bottom = Decreasing maxBound
 
 instance (Ord a, Bounded a) => Based (Decreasing a) a where
     jirelement = Decreasing
@@ -315,21 +286,16 @@ propagateDecrease f (Decreasing a) = Decreasing (f a) -- f must be monotone!
 -- | If @a@ is Ord and we know we get more of them over time.
 newtype GrowingSet a = GrowingSet { growingSet :: Set a }
 
-deriving instance Eq a => Eq (GrowingSet a)
 deriving instance Show a => Show (GrowingSet a)
-deriving instance Ord a => Ord (GrowingSet a)
 
-instance Ord a => Semigroup (GrowingSet a) where
-    s1 <> s2 = GrowingSet $ S.union (growingSet s1) (growingSet s2)
-
-instance Ord a => Monoid (GrowingSet a) where
-    mempty = GrowingSet $ mempty
+instance Ord a => POrd (GrowingSet a) where
+    GrowingSet s1 +> GrowingSet s2 = s1 >= s2
 
 instance Ord a => JoinSemilattice (GrowingSet a) where
-    (\/) = (<>)
+    GrowingSet s1 \/ GrowingSet s2 = GrowingSet $ S.union s1 s2
 
 instance Ord a => BoundedJoinSemilattice (GrowingSet a) where
-    bottom = mempty
+    bottom = GrowingSet $ mempty
 
 instance Ord a => Based (GrowingSet a) a where
     jirelement = GrowingSet . S.singleton
@@ -338,56 +304,54 @@ propagateGrowth :: (Ord a, Ord b) => (a -> b) -> GrowingSet a -> GrowingSet b
 propagateGrowth f = GrowingSet . S.map f . growingSet
 
 -- | If @a@ is Ord and we know we get fewer of them over time.
-newtype ShrinkingSet a = ShrinkingSet { shrinking :: Set a }
+newtype ShrinkingSet a = ShrinkingSet { shrinkingSet :: Set a }
 
-deriving instance Eq a => Eq (ShrinkingSet a)
+deriving instance Show a => Show (ShrinkingSet a)
 
-instance Ord a => Semigroup (ShrinkingSet a) where
-    s1 <> s2 = ShrinkingSet $ S.intersection (shrinking s1) (shrinking s2)
-
-instance (Ord a, Enum a, Bounded a) => Monoid (ShrinkingSet a) where
-    mempty = ShrinkingSet $ S.fromList $ enumFromTo minBound maxBound
+instance Ord a => POrd (ShrinkingSet a) where
+    ShrinkingSet s1 +> ShrinkingSet s2 = s1 <= s2
 
 instance Ord a => JoinSemilattice (ShrinkingSet a) where
-    (\/) = (<>)
+    ShrinkingSet s1 \/ ShrinkingSet s2 = ShrinkingSet $ S.intersection s1 s2
 
 instance (Ord a, Enum a, Bounded a) => BoundedJoinSemilattice (ShrinkingSet a) where
-    bottom = mempty
+    bottom = ShrinkingSet $ S.fromList $ enumFromTo minBound maxBound
 
 instance (Ord a, Enum a, Bounded a) => Based (ShrinkingSet a) a where
-    jirelement a = ShrinkingSet $ S.delete a (S.fromList $ enumFromTo minBound maxBound)
+    jirelement a = ShrinkingSet $ S.delete a (shrinkingSet bottom)
 
 propagateShrink :: (Ord a, Ord b) => (a -> b) -> ShrinkingSet a -> ShrinkingSet b
-propagateShrink f = ShrinkingSet . S.map f . shrinking
+propagateShrink f = ShrinkingSet . S.map f . shrinkingSet
 
--- | If @a@ is Ord and we know we it should stay the same over time.
--- newtype Same a = Same { same :: Either [a] a }
+--
 data Same a = Unknown | Unambiguous a | Ambiguous (Set a)
 
-deriving instance Eq a => Eq (Same a)
 deriving instance Show a => Show (Same a)
 
 instance IsString a => IsString (Same a) where
     fromString = Unambiguous . fromString
 
-instance Ord a => Semigroup (Same a) where
-    Unknown <> p = p
-    p <> Unknown = p
-    Ambiguous as <> Unambiguous a = Ambiguous (S.insert a as) 
-    Unambiguous a <> Ambiguous as = Ambiguous (S.insert a as) 
-    Ambiguous as1 <> Ambiguous as2 = Ambiguous (S.union as1 as2)
-    p@(Unambiguous a1) <> (Unambiguous a2)
+instance Ord a => POrd (Same a) where
+    Unknown +> Unknown = True
+    Unknown +> _ = False
+    _ +> Unknown = True
+    Unambiguous a1 +> Unambiguous a2 = a1 == a2
+    Ambiguous s1 +> Ambiguous s2 = s1 >= s2
+    Ambiguous s1 +> _ = True
+    _ +> Ambiguous s2 = True
+
+instance Ord a => JoinSemilattice (Same a) where
+    Unknown \/ p = p
+    p \/ Unknown = p
+    Ambiguous as \/ Unambiguous a = Ambiguous (S.insert a as) 
+    Unambiguous a \/ Ambiguous as = Ambiguous (S.insert a as) 
+    Ambiguous as1 \/ Ambiguous as2 = Ambiguous (S.union as1 as2)
+    p@(Unambiguous a1) \/ (Unambiguous a2)
         | a1 == a2 = p
         | otherwise = Ambiguous (S.fromList [a1, a2])
 
-instance Ord a => Monoid (Same a) where
-    mempty = Unknown
-
-instance Ord a => JoinSemilattice (Same a) where
-    (\/) = (<>)
-
 instance Ord a => BoundedJoinSemilattice (Same a) where
-    bottom = mempty
+    bottom = Unknown
 
 instance Ord a => Based (Same a) a where
     jirelement = Unambiguous
@@ -398,14 +362,17 @@ propagateSame f Unknown = Unknown
 propagateSame f (Unambiguous a) = Unambiguous (f a)
 propagateSame f (Ambiguous as) = Ambiguous (S.map f as)
 
--- higher kinded bjsconcat semilattices
+-- higher kinded join semilattices
 
 --
+instance POrd a => POrd (Identity a) where
+    Identity a1 +> Identity a2 = a1 +> a2
+
 instance JoinSemilattice a => JoinSemilattice (Identity a) where
     Identity a1 \/ Identity a2 = Identity $ a1 \/ a2
 
 instance BoundedJoinSemilattice a => BoundedJoinSemilattice (Identity a) where
-    bottom = bottom
+    bottom = Identity bottom
 
 instance Based a b => Based (Identity a) b where
     jirelement = Identity . jirelement
@@ -413,8 +380,10 @@ instance Based a b => Based (Identity a) b where
 --
 newtype GrowingMap k v = GrowingMap { growingMap :: M.Map k v}
 
-deriving instance (Eq k, Eq v) => Eq (GrowingMap k v)
 deriving instance (Show k, Show v) => Show (GrowingMap k v)
+
+instance (Ord k, POrd v) => POrd (GrowingMap k v) where
+    GrowingMap m1 +> GrowingMap m2 = undefined
 
 instance (Ord k, JoinSemilattice v) => JoinSemilattice (GrowingMap k v) where
     GrowingMap m1 \/ GrowingMap m2 = GrowingMap $ M.unionWith (\/) m1 m2
@@ -440,22 +409,25 @@ propagateMapValues = Homo $ L.foldl (\/) bottom . growingMap
 
 
 --
-instance JoinSemilattice a => JoinSemilattice [a] where
-    l1 \/ l2 = foldl1 (\/) <$> transpose [l1, l2]
+-- instance JoinSemilattice a => JoinSemilattice [a] where
+--     l1 \/ l2 = foldl1 (\/) <$> transpose [l1, l2]
 
-instance BoundedJoinSemilattice a => BoundedJoinSemilattice [a] where
-    bottom = mempty
+-- instance BoundedJoinSemilattice a => BoundedJoinSemilattice [a] where
+--     bottom = mempty
 
-instance Based a b => Based [a] (Int, b) where
-    jirelement (n, b) = replicate n bottom <> [jirelement b]
+-- instance Based a b => Based [a] (Int, b) where
+--     jirelement (n, b) = replicate n bottom <> [jirelement b]
 
 
-propagateListElement :: BoundedJoinSemilattice a => Int -> [a] -> a
-propagateListElement i l 
-  | i >= length l = bottom
-  | otherwise = l !! i
+-- propagateListElement :: BoundedJoinSemilattice a => Int -> [a] -> a
+-- propagateListElement i l 
+--   | i >= length l = bottom
+--   | otherwise = l !! i
 
 -- 
+instance (POrd a, POrd b) => POrd (a, b) where
+    (a1, b1) +> (a2, b2) = a1 +> a2 &&  b1 +> b2
+
 instance (JoinSemilattice a, JoinSemilattice b) => JoinSemilattice (a, b) where
     (a1, b1) \/ (a2, b2) = (a1 \/ a2, b1 \/ b2)
 
@@ -473,35 +445,42 @@ instance (Based a b, Based c d) => Based (a, c) (Either b d) where
     jirelement (Right d) = (bottom, jirelement d) 
 
 --
-instance (JoinSemilattice a, JoinSemilattice b, JoinSemilattice c) => JoinSemilattice (a, b, c) where
-    (a1, b1, c1) \/ (a2, b2, c2) = (a1 \/ a2, b1 \/ b2, c1 \/ c2)
+-- instance (JoinSemilattice a, JoinSemilattice b, JoinSemilattice c) => JoinSemilattice (a, b, c) where
+--     (a1, b1, c1) \/ (a2, b2, c2) = (a1 \/ a2, b1 \/ b2, c1 \/ c2)
 
-instance (BoundedJoinSemilattice a, BoundedJoinSemilattice b, BoundedJoinSemilattice c) => BoundedJoinSemilattice (a, b, c) where
-    bottom = (bottom, bottom, bottom)
+-- instance (BoundedJoinSemilattice a, BoundedJoinSemilattice b, BoundedJoinSemilattice c) => BoundedJoinSemilattice (a, b, c) where
+--     bottom = (bottom, bottom, bottom)
 
-instance (Based a b, Based c d, Based e f) => Based (a, c, e) (b, d, f) where
-    jirelement (b, d, f) = (jirelement b, jirelement d, jirelement f) 
+-- instance (Based a b, Based c d, Based e f) => Based (a, c, e) (b, d, f) where
+--     jirelement (b, d, f) = (jirelement b, jirelement d, jirelement f) 
 
 --
-instance (JoinSemilattice a, JoinSemilattice b, JoinSemilattice c, JoinSemilattice d) => JoinSemilattice (a, b, c, d) where
-    (a1, b1, c1, d1) \/ (a2, b2, c2, d2) = (a1 \/ a2, b1 \/ b2, c1 \/ c2, d1 \/ d2)
+-- instance (JoinSemilattice a, JoinSemilattice b, JoinSemilattice c, JoinSemilattice d) => JoinSemilattice (a, b, c, d) where
+--     (a1, b1, c1, d1) \/ (a2, b2, c2, d2) = (a1 \/ a2, b1 \/ b2, c1 \/ c2, d1 \/ d2)
 
-instance (BoundedJoinSemilattice a, BoundedJoinSemilattice b, BoundedJoinSemilattice c, BoundedJoinSemilattice d) => BoundedJoinSemilattice (a, b, c, d) where
-    bottom = (bottom, bottom, bottom, bottom)
+-- instance (BoundedJoinSemilattice a, BoundedJoinSemilattice b, BoundedJoinSemilattice c, BoundedJoinSemilattice d) => BoundedJoinSemilattice (a, b, c, d) where
+--     bottom = (bottom, bottom, bottom, bottom)
 
-instance (Based a b, Based c d, Based e f, Based g h) => Based (a, c, e, g) (b, d, f, h) where
-    jirelement (b, d, f, h) = (jirelement b, jirelement d, jirelement f, jirelement h) 
+-- instance (Based a b, Based c d, Based e f, Based g h) => Based (a, c, e, g) (b, d, f, h) where
+--     jirelement (b, d, f, h) = (jirelement b, jirelement d, jirelement f, jirelement h) 
 
 -- and so on...
 
 --
+instance (POrd a, POrd b) => POrd (Either a b) where
+    Left a1 +> Left a2 = a1 +> a2
+    Right a1 +> Right a2 = a1 +> a2
+    Left _ +> Right _ = False
+    Right _ +> Left _ = True
+
+
 instance (JoinSemilattice a, JoinSemilattice b) => JoinSemilattice (Either a b) where
     Left a1 \/ Left a2 = Left (a1 \/ a2)
     Right b1 \/ Right b2 = Right (b1 \/ b2)
     Left _ \/ r@(Right _) = r
     r@(Right _) \/ Left _ = r
 
-instance (BoundedJoinSemilattice a, BoundedJoinSemilattice b) => BoundedJoinSemilattice (Either a b) where
+instance (BoundedJoinSemilattice a, JoinSemilattice b) => BoundedJoinSemilattice (Either a b) where
     bottom = Left bottom
 
 instance (Based a b, Based c d) => Based (Either a c) (Either b d) where
