@@ -187,24 +187,6 @@ instance Based () () where
     jirelement = id
 
 --
-instance POrd a => POrd (Maybe a) where
-    Nothing +> Nothing = True
-    Nothing +> _ = False
-    _ +> Nothing = True
-    Just a +> Just b = a +> b
-
-instance JoinSemilattice a => JoinSemilattice (Maybe a) where
-    Nothing \/ ma = ma
-    ma \/ Nothing = ma
-    Just a \/ Just b = Just (a \/ b)
-
-instance JoinSemilattice a => BoundedJoinSemilattice (Maybe a) where
-    bottom = Nothing
-
-instance JoinSemilattice a => Based (Maybe a) a where
-    jirelement = Just
-
---
 instance POrd (Proxy a) where
     Proxy +> Proxy = True
 
@@ -376,6 +358,28 @@ instance BoundedJoinSemilattice a => BoundedJoinSemilattice (Identity a) where
 
 instance Based a b => Based (Identity a) b where
     jirelement = Identity . jirelement
+
+--
+instance POrd a => POrd (Maybe a) where
+    Nothing +> Nothing = True
+    Nothing +> _ = False
+    _ +> Nothing = True
+    Just a +> Just b = a +> b
+
+instance JoinSemilattice a => JoinSemilattice (Maybe a) where
+    Nothing \/ ma = ma
+    ma \/ Nothing = ma
+    Just a \/ Just b = Just (a \/ b)
+
+instance JoinSemilattice a => BoundedJoinSemilattice (Maybe a) where
+    bottom = Nothing
+
+instance JoinSemilattice a => Based (Maybe a) a where
+    jirelement = Just
+
+propagateMaybe :: BoundedJoinSemilattice a => Maybe a -> a -- homomorphism
+propagateMaybe Nothing = bottom
+propagateMaybe (Just a) = a
 
 --
 newtype GrowingMap k v = GrowingMap { growingMap :: M.Map k v}
