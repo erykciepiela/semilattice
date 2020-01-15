@@ -381,9 +381,11 @@ propagateMaybe :: BoundedJoinSemilattice a => Maybe a -> a -- homomorphism
 propagateMaybe Nothing = bottom
 propagateMaybe (Just a) = a
 
-propagateMaybe' :: JoinSemilattice a => Maybe a -> Increasing Bool -- homomorphism
-propagateMaybe' Nothing = Increasing False
-propagateMaybe' (Just _) = Increasing True
+propagateIsJust :: JoinSemilattice a => Maybe a -> Increasing Bool -- homomorphism
+propagateIsJust = Increasing . isJust
+
+propagateIsNothing :: JoinSemilattice a => Maybe a -> Decreasing Bool -- homomorphism
+propagateIsNothing = Decreasing . isNothing
 
 --
 newtype GrowingMap k v = GrowingMap { growingMap :: M.Map k v}
