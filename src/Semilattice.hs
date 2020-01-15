@@ -62,9 +62,6 @@ class JoinSemilattice s where
     -- a \/ b >= a 
     -- a \/ b >= b 
     (\/) :: s -> s -> s
-    -- a /\ b <= a 
-    -- a /\ b <= b 
-    (/\) :: s -> s -> s
 
 class JoinSemilattice s => BoundedJoinSemilattice s where
     bottom :: s
@@ -176,7 +173,6 @@ procbimap h m (Proc ph pm) = Proc (ph . h) (m . pm)
 -- 
 instance JoinSemilattice () where
     (\/) = (<>)
-    (/\) = (<>)
 
 instance BoundedJoinSemilattice () where
     bottom = mempty
@@ -187,7 +183,6 @@ instance Based () () where
 --
 instance Ord a => JoinSemilattice (Max a) where
     (\/) = (<>)
-    Max a1 /\ Max a2 = Max $ min a1 a2
 
 instance (Ord a, Bounded a) => BoundedJoinSemilattice (Max a) where
     bottom = mempty
@@ -198,7 +193,6 @@ instance (Ord a, Bounded a) => Based (Max a) a where
 --
 instance Ord a => JoinSemilattice (Min a) where
     (\/) = (<>)
-    Min a1 /\ Min a2 = Min $ max a1 a2
 
 instance (Ord a, Bounded a) => BoundedJoinSemilattice (Min a) where
     bottom = mempty
@@ -209,8 +203,6 @@ instance (Ord a, Bounded a) => Based (Min a) a where
 --
 instance JoinSemilattice All where
     (\/) = (<>)
-    All True /\ All True = All True
-    _ /\ _ = All False
 
 instance BoundedJoinSemilattice All  where
     bottom = mempty
@@ -221,8 +213,6 @@ instance Based All Bool where
 --
 instance JoinSemilattice Any where
     (\/) = (<>)
-    Any True /\ Any True = Any True
-    _ /\ _ = Any False
 
 instance BoundedJoinSemilattice Any  where
     bottom = mempty
@@ -234,7 +224,6 @@ instance Based Any Bool where
 --
 instance JoinSemilattice (Proxy a) where
     (\/) = (<>)
-    (/\) = (<>)
 
 instance BoundedJoinSemilattice (Proxy a) where
     bottom = mempty
@@ -266,7 +255,6 @@ deriving instance Eq a => Eq (Increasing a)
 
 instance Ord a => JoinSemilattice (Increasing a) where
     (\/) = (<>)
-    Increasing a1 /\ Increasing a2 = Increasing $ min a1 a2
     
 instance (Ord a, Bounded a) => BoundedJoinSemilattice (Increasing a) where
     bottom = mempty
@@ -306,7 +294,6 @@ deriving instance Eq a => Eq (Decreasing a)
 
 instance Ord a => JoinSemilattice (Decreasing a) where
     (\/) = (<>)
-    Decreasing a1 /\ Decreasing a2 = Decreasing $ max a1 a2
 
 instance (Ord a, Bounded a) => BoundedJoinSemilattice (Decreasing a) where
     bottom = mempty
@@ -340,7 +327,6 @@ instance Ord a => Monoid (GrowingSet a) where
 
 instance Ord a => JoinSemilattice (GrowingSet a) where
     (\/) = (<>)
-    GrowingSet s1 /\ GrowingSet s2 = GrowingSet $ S.intersection s1 s2
 
 instance Ord a => BoundedJoinSemilattice (GrowingSet a) where
     bottom = mempty
@@ -364,7 +350,6 @@ instance (Ord a, Enum a, Bounded a) => Monoid (ShrinkingSet a) where
 
 instance Ord a => JoinSemilattice (ShrinkingSet a) where
     (\/) = (<>)
-    ShrinkingSet s1 /\ ShrinkingSet s2 = ShrinkingSet $ S.union s1 s2
 
 instance (Ord a, Enum a, Bounded a) => BoundedJoinSemilattice (ShrinkingSet a) where
     bottom = mempty
@@ -400,14 +385,6 @@ instance Ord a => Monoid (Same a) where
 
 instance Ord a => JoinSemilattice (Same a) where
     (\/) = (<>)
-    Unknown /\ p = Unknown
-    p /\ Unknown = Unknown
-    Ambiguous as /\ p@(Unambiguous a) = p
-    p@(Unambiguous a) /\ Ambiguous as = p
-    Ambiguous as1 /\ Ambiguous as2 = Ambiguous (S.intersection as1 as2) -- ?
-    p@(Unambiguous a1) /\ (Unambiguous a2)
-        | a1 == a2 = p
-        | otherwise = Unknown
 
 instance Ord a => BoundedJoinSemilattice (Same a) where
     bottom = mempty
@@ -426,7 +403,6 @@ propagateSame f (Ambiguous as) = Ambiguous (S.map f as)
 --
 instance JoinSemilattice a => JoinSemilattice (Identity a) where
     Identity a1 \/ Identity a2 = Identity $ a1 \/ a2
-    Identity a1 /\ Identity a2 = Identity $ a1 /\ a2
 
 instance BoundedJoinSemilattice a => BoundedJoinSemilattice (Identity a) where
     bottom = bottom
@@ -442,7 +418,6 @@ deriving instance (Show k, Show v) => Show (GrowingMap k v)
 
 instance (Ord k, JoinSemilattice v) => JoinSemilattice (GrowingMap k v) where
     GrowingMap m1 \/ GrowingMap m2 = GrowingMap $ M.unionWith (\/) m1 m2
-    GrowingMap m1 /\ GrowingMap m2 = GrowingMap $ M.intersectionWith (/\) m1 m2
 
 instance (Ord k, BoundedJoinSemilattice v) => BoundedJoinSemilattice (GrowingMap k v) where
     bottom = GrowingMap mempty
@@ -467,7 +442,6 @@ propagateMapValues = Homo $ L.foldl (\/) bottom . growingMap
 --
 instance JoinSemilattice a => JoinSemilattice [a] where
     l1 \/ l2 = foldl1 (\/) <$> transpose [l1, l2]
-    l1 /\ l2 = foldl1 (/\) <$> transpose [l1, l2]
 
 instance BoundedJoinSemilattice a => BoundedJoinSemilattice [a] where
     bottom = mempty
@@ -484,7 +458,6 @@ propagateListElement i l
 -- 
 instance (JoinSemilattice a, JoinSemilattice b) => JoinSemilattice (a, b) where
     (a1, b1) \/ (a2, b2) = (a1 \/ a2, b1 \/ b2)
-    (a1, b1) /\ (a2, b2) = (a1 /\ a2, b1 /\ b2)
 
 propagateFst :: (JoinSemilattice a, JoinSemilattice b) => Homo (a, b) a
 propagateFst = Homo fst
@@ -502,7 +475,6 @@ instance (Based a b, Based c d) => Based (a, c) (Either b d) where
 --
 instance (JoinSemilattice a, JoinSemilattice b, JoinSemilattice c) => JoinSemilattice (a, b, c) where
     (a1, b1, c1) \/ (a2, b2, c2) = (a1 \/ a2, b1 \/ b2, c1 \/ c2)
-    (a1, b1, c1) /\ (a2, b2, c2) = (a1 /\ a2, b1 /\ b2, c1 /\ c2)
 
 instance (BoundedJoinSemilattice a, BoundedJoinSemilattice b, BoundedJoinSemilattice c) => BoundedJoinSemilattice (a, b, c) where
     bottom = (bottom, bottom, bottom)
@@ -513,7 +485,6 @@ instance (Based a b, Based c d, Based e f) => Based (a, c, e) (b, d, f) where
 --
 instance (JoinSemilattice a, JoinSemilattice b, JoinSemilattice c, JoinSemilattice d) => JoinSemilattice (a, b, c, d) where
     (a1, b1, c1, d1) \/ (a2, b2, c2, d2) = (a1 \/ a2, b1 \/ b2, c1 \/ c2, d1 \/ d2)
-    (a1, b1, c1, d1) /\ (a2, b2, c2, d2) = (a1 /\ a2, b1 /\ b2, c1 /\ c2, d1 /\ d2)
 
 instance (BoundedJoinSemilattice a, BoundedJoinSemilattice b, BoundedJoinSemilattice c, BoundedJoinSemilattice d) => BoundedJoinSemilattice (a, b, c, d) where
     bottom = (bottom, bottom, bottom, bottom)
@@ -529,10 +500,6 @@ instance (JoinSemilattice a, JoinSemilattice b) => JoinSemilattice (Either a b) 
     Right b1 \/ Right b2 = Right (b1 \/ b2)
     Left _ \/ r@(Right _) = r
     r@(Right _) \/ Left _ = r
-    Left a1 /\ Left a2 = Left (a1 /\ a2)
-    Right b1 /\ Right b2 = Right (b1 /\ b2)
-    r@(Left _) /\ Right _ = r
-    Right _ /\ r@(Left _) = r
 
 instance (BoundedJoinSemilattice a, BoundedJoinSemilattice b) => BoundedJoinSemilattice (Either a b) where
     bottom = Left bottom
