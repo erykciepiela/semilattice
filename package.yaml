@@ -30,6 +30,7 @@ default-extensions:
 - UndecidableInstances
 - OverloadedStrings
 - ExistentialQuantification
+- ConstraintKinds
 
 
 dependencies:

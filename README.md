@@ -6,7 +6,7 @@
         1. Fast local writes - temporary inconsistencies
         1. Not blocking local read/writes - network partitioning tolerance
         1. Replica synchronisation at arbitrary times - eventual consistency
-        1. Replacement for RPC-like APIs and problems they cause
+        1. Replacement for RPC-like APIs
     1. Advatageous even with single replica
         1. Irrefutable writes - accepting writes as undeniable facts
         1. Append-only writes - data can only grow

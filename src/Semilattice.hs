@@ -50,38 +50,49 @@ import Data.Proxy
 import Data.Functor.Identity
 import Data.Void
 import Data.Maybe
-import Data.IORef
-import Control.Comonad
 import Data.String
 
-class POrd p where
+-- | Partial order
+-- | (Eq is discrete order)
+class Eq p => PartialOrd p where
     -- a +> a -- reflexivity
     -- a +> b +> c => a +> c - transitivity
+    -- a +> b and b +> a => a == b - antisymmetry
     (+>) :: p -> p -> Bool -- minimal definition
     (<+) :: p -> p -> Bool
     (<+) = flip (+>)
     (<+>) :: p -> p -> Bool -- are two ps comparable
-    a <+> b = a +> b || a <+ b
+    a <+> b = a +> b || b +> a
     (>+<) :: p -> p -> Bool -- are two ps not comparable
     a >+< b = not $ a <+> b
-    (=+=) :: p -> p -> Bool -- are two ps equal
-    a =+= b = a +> b && b <+ a
     (+>>) :: p -> p -> Bool
-    a +>> b = a +> b && not (a =+= b)
+    a +>> b = a +> b && (a /= b)
     (<<+) :: p -> p -> Bool
     (<<+) = flip (+>>)
 
-class POrd s => JoinSemilattice s where
+class PartialOrd s => JoinSemilattice s where
     -- a \/ (b  \/ c) = (a \/ b) \/ c - associativity
     -- a \/ b = b \/ a - commutativity
     -- a \/ a = a idempotence
-    -- a \/ b == a <=> a +> b 
-    -- a \/ b == b <=> a <+ b 
+    -- a \/ b +> a
+    -- a \/ b +> b
     (\/) :: s -> s -> s
 
+class PartialOrd s => MeetSemilattice s where
+    -- a /\ (b  /\ c) = (a /\ b) /\ c - associativity
+    -- a /\ b = b /\ a - commutativity
+    -- a /\ a = a idempotence
+    -- a /\ b <+ a
+    -- a /\ b <+ b
+    (/\) :: s -> s -> s
+
 class JoinSemilattice s => BoundedJoinSemilattice s where
-    -- a \/ bottom == a == bottom \/ a
+    -- a \/ bottom = a = bottom \/ a 
     bottom :: s
+
+class MeetSemilattice s => BoundedMeetSemilattice s where
+    -- a /\ top = top = top /\ a 
+    top :: s
 
 bjsconcatS :: (Ord s, BoundedJoinSemilattice s) => S.Set s -> s
 bjsconcatS = S.foldr (\/) bottom
@@ -174,7 +185,7 @@ procbimap :: Homo a' a -> (b -> b') -> Proc a b -> Proc a' b'
 procbimap h m (Proc ph pm) = Proc (ph . h) (m . pm)
 
 --
-instance POrd () where
+instance PartialOrd () where
     () +> () = True
 
 instance JoinSemilattice () where
@@ -187,7 +198,7 @@ instance Based () () where
     jirelement = id
 
 --
-instance POrd (Proxy a) where
+instance PartialOrd (Proxy a) where
     Proxy +> Proxy = True
 
 instance JoinSemilattice (Proxy a) where
@@ -203,11 +214,12 @@ instance Based (Proxy a) () where
 newtype Increasing a = Increasing { increasing :: a }
 
 deriving instance Show a => Show (Increasing a)
+deriving instance Eq a => Eq (Increasing a)
 
 instance Num a => Num (Increasing a) where
     fromInteger = Increasing . fromInteger
 
-instance Ord a => POrd (Increasing a) where
+instance Ord a => PartialOrd (Increasing a) where
     (Increasing a) +> (Increasing b) = a >= b
     
 instance Ord a => JoinSemilattice (Increasing a) where
@@ -241,8 +253,9 @@ propagateIncrease2 f (Increasing a) (Increasing b) = Increasing (f a b) -- f mus
 newtype Decreasing a = Decreasing { decreasing :: a }
 
 deriving instance Show a => Show (Decreasing a)
+deriving instance Eq a => Eq (Decreasing a)
 
-instance Ord a => POrd (Decreasing a) where
+instance Ord a => PartialOrd (Decreasing a) where
     Decreasing a +> Decreasing b = a <= b
 
 instance Ord a => JoinSemilattice (Decreasing a) where
@@ -269,8 +282,9 @@ propagateDecrease f (Decreasing a) = Decreasing (f a) -- f must be monotone!
 newtype GrowingSet a = GrowingSet { growingSet :: Set a }
 
 deriving instance Show a => Show (GrowingSet a)
+deriving instance Eq a => Eq (GrowingSet a)
 
-instance Ord a => POrd (GrowingSet a) where
+instance Ord a => PartialOrd (GrowingSet a) where
     GrowingSet s1 +> GrowingSet s2 = s1 >= s2
 
 instance Ord a => JoinSemilattice (GrowingSet a) where
@@ -289,8 +303,9 @@ propagateGrowth f = GrowingSet . S.map f . growingSet
 newtype ShrinkingSet a = ShrinkingSet { shrinkingSet :: Set a }
 
 deriving instance Show a => Show (ShrinkingSet a)
+deriving instance Eq a => Eq (ShrinkingSet a)
 
-instance Ord a => POrd (ShrinkingSet a) where
+instance Ord a => PartialOrd (ShrinkingSet a) where
     ShrinkingSet s1 +> ShrinkingSet s2 = s1 <= s2
 
 instance Ord a => JoinSemilattice (ShrinkingSet a) where
@@ -309,11 +324,12 @@ propagateShrink f = ShrinkingSet . S.map f . shrinkingSet
 data Same a = Unknown | Unambiguous a | Ambiguous (Set a)
 
 deriving instance Show a => Show (Same a)
+deriving instance Eq a => Eq (Same a)
 
 instance IsString a => IsString (Same a) where
     fromString = Unambiguous . fromString
 
-instance Ord a => POrd (Same a) where
+instance Ord a => PartialOrd (Same a) where
     Unknown +> Unknown = True
     Unknown +> _ = False
     _ +> Unknown = True
@@ -347,7 +363,7 @@ propagateSame f (Ambiguous as) = Ambiguous (S.map f as)
 -- higher kinded join semilattices
 
 --
-instance POrd a => POrd (Identity a) where
+instance PartialOrd a => PartialOrd (Identity a) where
     Identity a1 +> Identity a2 = a1 +> a2
 
 instance JoinSemilattice a => JoinSemilattice (Identity a) where
@@ -360,7 +376,7 @@ instance Based a b => Based (Identity a) b where
     jirelement = Identity . jirelement
 
 --
-instance POrd a => POrd (Maybe a) where
+instance PartialOrd a => PartialOrd (Maybe a) where
     Nothing +> Nothing = True
     Nothing +> _ = False
     _ +> Nothing = True
@@ -391,8 +407,10 @@ propagateIsNothing = Decreasing . isNothing
 newtype GrowingMap k v = GrowingMap { growingMap :: M.Map k v}
 
 deriving instance (Show k, Show v) => Show (GrowingMap k v)
+deriving instance (Eq k, Eq a) => Eq (GrowingMap k a)
 
-instance (Ord k, POrd v) => POrd (GrowingMap k v) where
+
+instance (Ord k, PartialOrd v) => PartialOrd (GrowingMap k v) where
     GrowingMap m1 +> GrowingMap m2 = undefined
 
 instance (Ord k, JoinSemilattice v) => JoinSemilattice (GrowingMap k v) where
@@ -435,7 +453,7 @@ propagateMapValues = Homo $ L.foldl (\/) bottom . growingMap
 --   | otherwise = l !! i
 
 -- 
-instance (POrd a, POrd b) => POrd (a, b) where
+instance (PartialOrd a, PartialOrd b) => PartialOrd (a, b) where
     (a1, b1) +> (a2, b2) = a1 +> a2 &&  b1 +> b2
 
 instance (JoinSemilattice a, JoinSemilattice b) => JoinSemilattice (a, b) where
@@ -477,7 +495,7 @@ instance (Based a b, Based c d) => Based (a, c) (Either b d) where
 -- and so on...
 
 --
-instance (POrd a, POrd b) => POrd (Either a b) where
+instance (PartialOrd a, PartialOrd b) => PartialOrd (Either a b) where
     Left a1 +> Left a2 = a1 +> a2
     Right a1 +> Right a2 = a1 +> a2
     Left _ +> Right _ = False
