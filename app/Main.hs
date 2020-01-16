@@ -43,16 +43,16 @@ dt :: PositionInDT -> Bag -> DT
 dt pidt bag = jirelement (pidt, bag)
 
 bagPicked :: PositionInShipment -> PositionInVan -> PositionInFrame -> PositionInDT -> SkuId -> Qty -> Shipment
-bagPicked pishipment pivan piframe pidt skuId qty = jirelement (pishipment, (bottom, jirelement (pivan, (bottom, jirelement (piframe, jirelement (Right (pidt, jirelement (skuId, jirelement qty))))))))
+bagPicked pishipment pivan piframe pidt skuId qty = jirelement (pishipment, (bottom, jirelement (pivan, (bottom, jirelement (piframe, (bottom, jirelement (pidt, jirelement (skuId, jirelement qty))))))))
 
 dtPicked :: PositionInShipment -> PositionInVan -> PositionInFrame -> LPN -> Shipment
-dtPicked pishipment pivan piframe dtlpn = jirelement (pishipment, (bottom, jirelement (pivan, (bottom, jirelement (piframe, jirelement (Left dtlpn))))))
+dtPicked pishipment pivan piframe dtlpn = jirelement (pishipment, (bottom, jirelement (pivan, (bottom, jirelement (piframe, (jirelement dtlpn, bottom))))))
 
 frameLoaded :: PositionInShipment -> PositionInVan -> LPN -> Shipment
-frameLoaded pishipment pivan frameLpn = jirelement (pishipment, (bottom, jirelement (pivan, jirelement (Left frameLpn))))
+frameLoaded pishipment pivan frameLpn = jirelement (pishipment, (bottom, jirelement (pivan, (jirelement frameLpn, bottom))))
 
 vanLoaded :: PositionInShipment -> LPN -> Shipment
-vanLoaded pishipment vanLpn = jirelement (pishipment, jirelement (Left vanLpn))
+vanLoaded pishipment vanLpn = jirelement (pishipment, (jirelement vanLpn, bottom))
 
 -- homomorphisms - morphisms
 shipmentVan :: PositionInShipment -> Homo Shipment Van

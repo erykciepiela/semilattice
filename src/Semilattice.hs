@@ -144,11 +144,11 @@ isDescending [s] = True
 isDescending (s1:rest@(s2:_)) = s1 +> s2 && isDescending rest
 
 --
-class BoundedJoinSemilattice s => Based s b | s -> b where
+class JoinSemilattice s => Based s b | s -> b where
     -- join-irreducible element
     jirelement :: b -> s
 
-bconcat :: Based s b => [b] -> s
+bconcat :: (BoundedJoinSemilattice s, Based s b) => [b] -> s
 bconcat bs = bjsconcat $ jirelement <$> bs
 
 --
@@ -471,9 +471,8 @@ propagateSnd = Homo snd
 instance (BoundedJoinSemilattice a, BoundedJoinSemilattice b) => BoundedJoinSemilattice (a, b) where
     bottom = (bottom, bottom)
 
-instance (Based a b, Based c d) => Based (a, c) (Either b d) where
-    jirelement (Left b) = (jirelement b, bottom) 
-    jirelement (Right d) = (bottom, jirelement d) 
+instance (Based a b, Based c d) => Based (a, c) (b, d) where
+    jirelement (b, d) = (jirelement b, jirelement d) 
 
 --
 -- instance (JoinSemilattice a, JoinSemilattice b, JoinSemilattice c) => JoinSemilattice (a, b, c) where
@@ -503,7 +502,6 @@ instance (PartialOrd a, PartialOrd b) => PartialOrd (Either a b) where
     Right a1 +> Right a2 = a1 +> a2
     Left _ +> Right _ = False
     Right _ +> Left _ = True
-
 
 instance (JoinSemilattice a, JoinSemilattice b) => JoinSemilattice (Either a b) where
     Left a1 \/ Left a2 = Left (a1 \/ a2)
@@ -560,23 +558,3 @@ join (GrowingSet ss) = bjsconcat ss
 
 all :: (BoundedJoinSemilattice s) => GrowingSet s -> S.Set s
 all (GrowingSet ss) = ss
-
-
--- instance Eq (E s) where
---     E g1 == E g2 = g1 == g2
-
--- instance Ord (E s) where
---     compare (E g1) (E g2) = compare g1 g2
-
--- instance Ord s => JoinSemilattice (E s) where
---     (E g1) \/ (E g2) = E $ g1 \/ g2
-
--- instance (BoundedJoinSemilattice s, Ord s) => BoundedJoinSemilattice (E s) where
---     bottom = E bottom
-
--- instance Functor E where
---     fmap = undefined 
-
--- instance Comonad E where
---     extract (E (GrowingSet ss)) = bjsconcat ss
---     duplicate (E (GrowingSet ss)) = E $ GrowingSet $ S.map (\s -> E (GrowingSet (S.singleton s))) ss
