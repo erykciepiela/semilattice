@@ -74,7 +74,7 @@ test permNo dupNo final as = all (`ascendsTo` final) $ L.take permNo $ permuteDu
 
 main :: IO ()
 main = do
-    let pickZoneEvents = 
+    let events = 
             [
                 batchPicked 0 0 0 0 "apple" 0 3, 
                 batchPicked 0 0 0 1 "banana" 1 4,
@@ -83,19 +83,13 @@ main = do
                 batchPicked 0 0 0 2 "donut" 4 5,
                 batchPicked 0 0 1 0 "cucumber" 5 7,
                 dtManufactured 0 0 0 "DT1",
-                dtManufactured 0 0 1 "DT2"
-            ]
-    let frameLoadZoneEvents = 
-            [
-                frameLoaded 0 0 "F1"
-            ]
-    let vanLoadZoneEvents = 
-            [
+                dtManufactured 0 0 1 "DT2",
+                frameLoaded 0 0 "F1",
                 vanLoaded 0 "V1"
             ]
     let expected = GrowingMap {growingMap = fromList [(0,(Unambiguous "V1",GrowingMap {growingMap = fromList [(0,(Unambiguous "F1",GrowingMap {growingMap = fromList [(0,(Unambiguous "DT1",GrowingMap {growingMap = fromList [(0,GrowingMap {growingMap = fromList [("apple",GrowingMap {growingMap = fromList [(0,Increasing {increasing = 3})]}),("coconut",GrowingMap {growingMap = fromList [(2,Increasing {increasing = 1}),(3,Increasing {increasing = 1})]})]}),(1,GrowingMap {growingMap = fromList [("banana",GrowingMap {growingMap = fromList [(1,Increasing {increasing = 4})]})]}),(2,GrowingMap {growingMap = fromList [("donut",GrowingMap {growingMap = fromList [(4,Increasing {increasing = 5})]})]})]})),(1,(Unambiguous "DT2",GrowingMap {growingMap = fromList [(0,GrowingMap {growingMap = fromList [("cucumber",GrowingMap {growingMap = fromList [(5,Increasing {increasing = 7})]})]})]}))]}))]}))]}
-    print $ test 10000 4 expected $ mconcat [vanLoadZoneEvents, frameLoadZoneEvents, pickZoneEvents] -- True
+    print $ test 100000 2 expected events -- True
     
     -- let expected' = bag "apple" (batch 0 3) \/ bag "coconut" (batch 2 1) \/ bag "coconut" (batch 3 1)
-    -- print $ test 10000 4 expected' $ homo (shipmentBag 0 0 0 0) <$> mconcat [vanLoadZoneEvents, frameLoadZoneEvents, pickZoneEvents] -- True
-    -- print $ runProc (Proc (shipmentDTLPN 0 0 1) id) $ mconcat [vanLoadZoneEvents, frameLoadZoneEvents, pickZoneEvents] -- True
+    -- print $ test 10000 4 expected' $ homo (shipmentBag 0 0 0 0) <$> events -- True
+    print $ runProc (Proc (shipmentDTLPN 0 0 1) id) events -- True
