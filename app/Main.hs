@@ -5,7 +5,8 @@ import Control.Category
 import Semilattice
 import Data.String
 import Data.List as L
-import Data.Set as S
+-- import Data.Set as S
+import Data.Map as M
 
 type SkuId = String
 type Qty = Int
@@ -14,18 +15,16 @@ newtype LPN = LPN String deriving (Eq, Ord, Show)
 instance IsString LPN where
     fromString = LPN
 
-type LogicalDTId = String
-type BagId = Int
-type ShipmentId = String
-type VanId = String
-type FrameId = String
 type PositionInDT = Int
 type PositionInFrame = Int
 type PositionInVan = Int
 type PositionInShipment = Int
+type ST = Int
 
 -- bounded join semilattices - objects
-type Bag = GrowingMap SkuId (Increasing Qty)
+type Batch = GrowingMap ST (Increasing Qty)
+
+type Bag = GrowingMap SkuId Batch
 
 type DT = GrowingMap PositionInDT Bag
 
@@ -36,14 +35,17 @@ type Van = GrowingMap PositionInVan (Same LPN, Frame)
 type Shipment = GrowingMap PositionInShipment (Same LPN, Van)
 
 -- join-irreducible elements
-bag :: SkuId -> Qty -> Bag
-bag skuId qty = jirelement (skuId, jirelement qty)
+batch :: ST -> Qty -> Batch
+batch st qty = jirelement (st, jirelement qty)
+
+bag :: SkuId -> Batch -> Bag
+bag skuId batch = jirelement (skuId, batch)
 
 dt :: PositionInDT -> Bag -> DT
 dt pidt bag = jirelement (pidt, bag)
 
-bagPicked :: PositionInShipment -> PositionInVan -> PositionInFrame -> PositionInDT -> SkuId -> Qty -> Shipment
-bagPicked pishipment pivan piframe pidt skuId qty = jirelement (pishipment, (bottom, jirelement (pivan, (bottom, jirelement (piframe, (bottom, jirelement (pidt, jirelement (skuId, jirelement qty))))))))
+bagPicked :: PositionInShipment -> PositionInVan -> PositionInFrame -> PositionInDT -> SkuId -> ST -> Qty -> Shipment
+bagPicked pishipment pivan piframe pidt skuId st qty = jirelement (pishipment, (bottom, jirelement (pivan, (bottom, jirelement (piframe, (bottom, jirelement (pidt, jirelement (skuId, jirelement (st, jirelement qty)))))))))
 
 dtPicked :: PositionInShipment -> PositionInVan -> PositionInFrame -> LPN -> Shipment
 dtPicked pishipment pivan piframe dtlpn = jirelement (pishipment, (bottom, jirelement (pivan, (bottom, jirelement (piframe, (jirelement dtlpn, bottom))))))
@@ -87,12 +89,12 @@ main :: IO ()
 main = do
     let pickZoneEvents = 
             [
-                bagPicked 0 0 0 0 "apple" 3, 
-                bagPicked 0 0 0 1 "banana" 4,
-                bagPicked 0 0 0 0 "coconut" 1,
-                bagPicked 0 0 0 0 "coconut" 2,
-                bagPicked 0 0 0 2 "donut" 5,
-                bagPicked 0 0 1 0 "cucumber" 7,
+                bagPicked 0 0 0 0 "apple" 0 3, 
+                bagPicked 0 0 0 1 "banana" 1 4,
+                bagPicked 0 0 0 0 "coconut" 2 1,
+                bagPicked 0 0 0 0 "coconut" 3 1,
+                bagPicked 0 0 0 2 "donut" 4 5,
+                bagPicked 0 0 1 0 "cucumber" 5 7,
                 dtPicked 0 0 0 "DT1",
                 dtPicked 0 0 1 "DT2"
             ]
@@ -104,8 +106,9 @@ main = do
             [
                 vanLoaded 0 "V1"
             ]
-    let expected = bconcat [(0,("V1",bconcat [(0,("F1",bconcat [(0,("DT1",bconcat [(0,bconcat [("apple", 3),("coconut", 2)]),(1,bconcat [("banana", 4)]),(2,bconcat [("donut", 5)])])),(1,("DT2",bconcat [(0,bconcat [("cucumber", 7)])]))]))]))]
+    let expected = GrowingMap {growingMap = fromList [(0,(Unambiguous (LPN "V1"),GrowingMap {growingMap = fromList [(0,(Unambiguous (LPN "F1"),GrowingMap {growingMap = fromList [(0,(Unambiguous (LPN "DT1"),GrowingMap {growingMap = fromList [(0,GrowingMap {growingMap = fromList [("apple",GrowingMap {growingMap = fromList [(0,Increasing {increasing = 3})]}),("coconut",GrowingMap {growingMap = fromList [(2,Increasing {increasing = 1}),(3,Increasing {increasing = 1})]})]}),(1,GrowingMap {growingMap = fromList [("banana",GrowingMap {growingMap = fromList [(1,Increasing {increasing = 4})]})]}),(2,GrowingMap {growingMap = fromList [("donut",GrowingMap {growingMap = fromList [(4,Increasing {increasing = 5})]})]})]})),(1,(Unambiguous (LPN "DT2"),GrowingMap {growingMap = fromList [(0,GrowingMap {growingMap = fromList [("cucumber",GrowingMap {growingMap = fromList [(5,Increasing {increasing = 7})]})]})]}))]}))]}))]}
     print $ test 10000 4 expected $ mconcat [vanLoadZoneEvents, frameLoadZoneEvents, pickZoneEvents] -- True
-    let expected' = bag "apple" 3 \/ bag "coconut" 2
-    print $ test 10000 4 expected' $ homo (shipmentBag 0 0 0 0) <$> mconcat [vanLoadZoneEvents, frameLoadZoneEvents, pickZoneEvents] -- True
-    print $ runProc (Proc (shipmentDTLPN 0 0 1) id) $ mconcat [vanLoadZoneEvents, frameLoadZoneEvents, pickZoneEvents] -- True
+    
+    -- let expected' = bag "apple" (batch 0 3) \/ bag "coconut" (batch 2 1) \/ bag "coconut" (batch 3 1)
+    -- print $ test 10000 4 expected' $ homo (shipmentBag 0 0 0 0) <$> mconcat [vanLoadZoneEvents, frameLoadZoneEvents, pickZoneEvents] -- True
+    -- print $ runProc (Proc (shipmentDTLPN 0 0 1) id) $ mconcat [vanLoadZoneEvents, frameLoadZoneEvents, pickZoneEvents] -- True

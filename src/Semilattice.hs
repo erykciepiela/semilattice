@@ -437,7 +437,8 @@ propagateMapKeys = Homo $ GrowingSet . M.keysSet . growingMap
 propagateMapValues :: (Ord k, BoundedJoinSemilattice s) => Homo (GrowingMap k s) s
 propagateMapValues = Homo $ L.foldl (\/) bottom . growingMap
 
-
+foo' :: Num n => Mono (GrowingMap k (Increasing n)) (Increasing n)
+foo' = Mono $ \(GrowingMap map) -> Increasing $ sum $ increasing <$> map
 
 --
 -- instance JoinSemilattice a => JoinSemilattice [a] where
