@@ -7,6 +7,7 @@ import Data.String
 import Data.List as L
 import Data.Map as M
 
+-- domain types
 type SKU = String
 type Qty = Int
 type LPN = String
@@ -33,8 +34,8 @@ type Shipment = GrowingMap PositionInShipment (Same LPN, Van)
 batchPicked :: PositionInShipment -> PositionInVan -> PositionInFrame -> PositionInDT -> SKU -> ST -> Qty -> Shipment
 batchPicked pishipment pivan piframe pidt skuId st qty = jirelement (pishipment, (bottom, jirelement (pivan, (bottom, jirelement (piframe, (bottom, jirelement (pidt, jirelement (skuId, jirelement (st, jirelement qty)))))))))
 
-dtPicked :: PositionInShipment -> PositionInVan -> PositionInFrame -> LPN -> Shipment
-dtPicked pishipment pivan piframe dtlpn = jirelement (pishipment, (bottom, jirelement (pivan, (bottom, jirelement (piframe, (jirelement dtlpn, bottom))))))
+dtManufactured :: PositionInShipment -> PositionInVan -> PositionInFrame -> LPN -> Shipment
+dtManufactured pishipment pivan piframe dtlpn = jirelement (pishipment, (bottom, jirelement (pivan, (bottom, jirelement (piframe, (jirelement dtlpn, bottom))))))
 
 frameLoaded :: PositionInShipment -> PositionInVan -> LPN -> Shipment
 frameLoaded pishipment pivan frameLpn = jirelement (pishipment, (bottom, jirelement (pivan, (jirelement frameLpn, bottom))))
@@ -81,8 +82,8 @@ main = do
                 batchPicked 0 0 0 0 "coconut" 3 1,
                 batchPicked 0 0 0 2 "donut" 4 5,
                 batchPicked 0 0 1 0 "cucumber" 5 7,
-                dtPicked 0 0 0 "DT1",
-                dtPicked 0 0 1 "DT2"
+                dtManufactured 0 0 0 "DT1",
+                dtManufactured 0 0 1 "DT2"
             ]
     let frameLoadZoneEvents = 
             [
