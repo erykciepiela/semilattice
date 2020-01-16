@@ -415,7 +415,7 @@ deriving instance (Eq k, Eq a) => Eq (GrowingMap k a)
 
 
 instance (Ord k, PartialOrd v) => PartialOrd (GrowingMap k v) where
-    GrowingMap m1 +> GrowingMap m2 = undefined
+    GrowingMap m1 +> GrowingMap m2 = M.isSubmapOfBy (<+) m2 m1
 
 instance (Ord k, JoinSemilattice v) => JoinSemilattice (GrowingMap k v) where
     GrowingMap m1 \/ GrowingMap m2 = GrowingMap $ M.unionWith (\/) m1 m2
