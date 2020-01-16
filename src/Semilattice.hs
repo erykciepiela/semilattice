@@ -86,6 +86,8 @@ class PartialOrd s => MeetSemilattice s where
     -- a /\ b <+ b
     (/\) :: s -> s -> s
 
+class (JoinSemilattice s, MeetSemilattice s) => Semilattice s
+
 class JoinSemilattice s => BoundedJoinSemilattice s where
     -- a \/ bottom = a = bottom \/ a 
     bottom :: s
@@ -93,6 +95,8 @@ class JoinSemilattice s => BoundedJoinSemilattice s where
 class MeetSemilattice s => BoundedMeetSemilattice s where
     -- a /\ top = top = top /\ a 
     top :: s
+
+class (BoundedJoinSemilattice s, BoundedMeetSemilattice s) => BoundedSemilattice s
 
 bjsconcatS :: (Ord s, BoundedJoinSemilattice s) => S.Set s -> s
 bjsconcatS = S.foldr (\/) bottom
