@@ -65,8 +65,8 @@ shipmentPositionsDone :: Homo Shipment (GrowingSet PositionInShipment)
 shipmentPositionsDone = propagateMapKeys 
 
 -- checks
-alwaysAscendsTo :: (Eq a, BoundedJoinSemilattice a) => Int -> a -> [a] -> Bool
-alwaysAscendsTo samplesNo final as = all (`ascendsTo'` final) $ L.take samplesNo $ scenarios as
+alwaysAscendsTo :: (Eq a, BoundedJoinSemilattice a) => [a] -> a -> Int -> Bool
+alwaysAscendsTo as final samplesNo = all (`ascendsTo'` final) $ L.take samplesNo $ scenarios as
 
 scenarios :: [a] -> [[[a]]]
 scenarios as = mconcat $ groupings <$> (L.permutations $ duplicates as)
@@ -98,4 +98,4 @@ main = do
                 vanLoaded 0 "V1"
             ]
     let expectedEventualState = GrowingMap {growingMap = fromList [(0,(Unambiguous "V1",GrowingMap {growingMap = fromList [(0,(Unambiguous "F1",GrowingMap {growingMap = fromList [(0,(Unambiguous "DT1",GrowingMap {growingMap = fromList [(0,GrowingMap {growingMap = fromList [("apple",GrowingMap {growingMap = fromList [(0,Increasing {increasing = 3})]}),("coconut",GrowingMap {growingMap = fromList [(2,Increasing {increasing = 1}),(3,Increasing {increasing = 1})]})]}),(1,GrowingMap {growingMap = fromList [("banana",GrowingMap {growingMap = fromList [(1,Increasing {increasing = 4})]})]}),(2,GrowingMap {growingMap = fromList [("donut",GrowingMap {growingMap = fromList [(4,Increasing {increasing = 5})]})]})]})),(1,(Unambiguous "DT2",GrowingMap {growingMap = fromList [(0,GrowingMap {growingMap = fromList [("cucumber",GrowingMap {growingMap = fromList [(5,Increasing {increasing = 7})]})]})]}))]}))]}))]}
-    print $ alwaysAscendsTo 10000 expectedEventualState events -- True
+    print $ alwaysAscendsTo events expectedEventualState 10000 -- True
