@@ -77,7 +77,7 @@ messUp originalList = mconcat $ groupings <$> L.permutations (duplicates origina
 
 main :: IO ()
 main = do
-    -- number of possible permuting/grouping/duplicating messUp for n events
+    -- number of possible messed up lists for n events
     print $ length $ messUp [1..1] -- = 4
     print $ length $ messUp [1..2] -- = 192
     print $ length $ messUp [1..3] -- > 23k
