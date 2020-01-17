@@ -81,5 +81,10 @@
             1. Monotonic mappings between JSs are a category
         1. If `f (a \/ b) = f a \/ f b` and `f 0 = 0` then `f` it's not only *monotonic* but *homomorphic*
             1. Homomorphic mappings between JSs are a category
+        1. Propagators concept
     1. References
-        1. *Introduction to Lattices and Order*, 2nd edition, 2012, B. A. Davey, H. A. Priestley    
+        1. *Introduction to Lattices and Order*, 2nd edition, 2012, B. A. Davey, H. A. Priestley
+        1. [Edward Kmett: Propagators - Boston Haskell](https://www.youtube.com/watch?v=DyPzPeOPgUE)
+        1. [Edward Kmett: Propagators - YOW! Lambda Jam 2016](https://www.youtube.com/watch?v=acZkF6Q2XKs)
+        1. [John Mumm: A CRDT Primer: Defanging Order Theory](https://www.youtube.com/watch?v=OOlnp2bZVRs&t=1478s)
+        1. [Marc Shapiro: Strong Eventual Consistency and Conflict-free Replicated Data Types](https://www.youtube.com/watch?v=ebWVLVhiaiY&t=1018s)    
