@@ -164,6 +164,9 @@ instance Category Homo where
     id = Homo id
     h1 . h2 = Homo $ homo h1 . homo h2 
 
+propagateHomo :: (BoundedJoinSemilattice a, BoundedJoinSemilattice b) => Homo a b -> [a] -> [b]
+propagateHomo (Homo f) = scanl (\b a -> b \/ f a) bottom
+
 --
 newtype Mono a b = Mono { mono :: a -> b }
 
@@ -171,7 +174,8 @@ instance Category Mono where
     id = Mono id
     m1 . m2 = Mono $ mono m1 . mono m2 
 
--- data ProcM a b = forall s. BoundedJoinSemilattice s => ProcM { pmhomo :: Homo a s, pmmono :: Mono s b }
+propagateMono :: BoundedJoinSemilattice a => Mono a b -> [a] -> [b]
+propagateMono (Mono f) as = f <$> scanl (\/) bottom as 
 
 data Proc a b = forall s. BoundedJoinSemilattice s => Proc { phomo :: Homo a s, pf :: s -> b }
 
@@ -540,18 +544,6 @@ instance (Based a b, Based c d) => Based (Either a c) (Either b d) where
 -- f (a1 \/ a2 \/ ... \/ an) = f a1 \/ f a2 \/ ... \/ f an
 -- f :: a -> b
 -- a -> (b -> b)
-
-propagateMono :: (BoundedJoinSemilattice a, BoundedJoinSemilattice b, Foldable t, Functor t) => (a -> b) -> t a -> b
-propagateMono f as =  bjsconcat $ f <$> as
--- 
--- if f is homomorphism:
--- propagateMono f [a1, a2]
--- = bjsconcat $ [f a1, f a2]
--- = f a1 \/ f a2
--- = f (a1 \/ a2) -- as f is monomorphism
--- = f (bjsconcat [a1, a2])
-propagateHomo :: (BoundedJoinSemilattice a, BoundedJoinSemilattice b, Foldable t) => (a -> b) -> t a -> b
-propagateHomo f as = f $ bjsconcat as
 
 --
 
