@@ -66,8 +66,8 @@ shipmentPositionsDone = propagateMapKeys
 
 -- | Messes up original list by doubling each element, permuting elements and grouping subsequences of elements.
 -- | Returns list of possible list of groups of elements
-messUp :: [a] -> [[[a]]]
-messUp originalList = mconcat $ groupings <$> L.permutations (duplicates originalList)
+messedUp :: [a] -> [[[a]]]
+messedUp originalList = mconcat $ groupings <$> L.permutations (duplicates originalList)
     where
     groupings :: [a] -> [[[a]]]
     groupings [a] = [[[a]]]
@@ -78,10 +78,10 @@ messUp originalList = mconcat $ groupings <$> L.permutations (duplicates origina
 main :: IO ()
 main = do
     -- number of possible messed up lists for n events
-    print $ length $ messUp [1..1] -- = 4
-    print $ length $ messUp [1..2] -- = 192
-    print $ length $ messUp [1..3] -- > 23k
-    print $ length $ messUp [1..4] -- > 5M
+    print $ length $ messedUp [1..1] -- for 1 event it's 4
+    print $ length $ messedUp [1..2] -- for 2 event it's = 192
+    print $ length $ messedUp [1..3] -- for 3 event it's > 23k
+    print $ length $ messedUp [1..4] -- for 4 event it's > 5M
     let events = 
             [
                 batchPicked 0 0 0 0 "apple" 0 3, 
@@ -97,4 +97,4 @@ main = do
                 vanLoaded 0 "V1"
             ]
     let expectedState = GrowingMap {growingMap = fromList [(0,(Unambiguous "V1",GrowingMap {growingMap = fromList [(0,(Unambiguous "F1",GrowingMap {growingMap = fromList [(0,(Unambiguous "DT1",GrowingMap {growingMap = fromList [(0,GrowingMap {growingMap = fromList [("apple",GrowingMap {growingMap = fromList [(0,Increasing {increasing = 3})]}),("coconut",GrowingMap {growingMap = fromList [(2,Increasing {increasing = 1}),(3,Increasing {increasing = 1})]})]}),(1,GrowingMap {growingMap = fromList [("banana",GrowingMap {growingMap = fromList [(1,Increasing {increasing = 4})]})]}),(2,GrowingMap {growingMap = fromList [("donut",GrowingMap {growingMap = fromList [(4,Increasing {increasing = 5})]})]})]})),(1,(Unambiguous "DT2",GrowingMap {growingMap = fromList [(0,GrowingMap {growingMap = fromList [("cucumber",GrowingMap {growingMap = fromList [(5,Increasing {increasing = 7})]})]})]}))]}))]}))]}
-    print $ all (`isEventuallyConsistent` expectedState) (L.take 100000 (messUp events))  -- True
+    print $ all (`isEventuallyConsistent` expectedState) (L.take 100000 (messedUp events))  -- True
