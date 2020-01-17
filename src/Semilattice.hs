@@ -11,7 +11,7 @@ module Semilattice (
     ascends,
     ascendsTowards,
     ascendsTo,
-    ascendsTo',    
+    isEventuallyConsistent,    
     isDescending,
     Homo(..),
     Based(..),
@@ -139,9 +139,9 @@ ascendsTo ss final = let ss' = bjsscan ss in isAscending ss' && L.all (<+ final)
         isAscending [s] = True
         isAscending (s1:rest@(s2:_)) = s1 <+ s2 && isAscending rest
 
-ascendsTo' :: (Eq s, BoundedJoinSemilattice s) => [[s]] -> s -> Bool
-ascendsTo' [] final = final == bottom
-ascendsTo' ss final = ascendsTo (bjsconcat <$> ss) final
+isEventuallyConsistent :: (Eq s, BoundedJoinSemilattice s) => [[s]] -> s -> Bool
+isEventuallyConsistent [] final = final == bottom
+isEventuallyConsistent ss final = ascendsTo (bjsconcat <$> ss) final
 
 isDescending :: (Eq s, BoundedJoinSemilattice s) => [s] -> Bool
 isDescending [] = True
