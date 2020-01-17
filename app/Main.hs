@@ -2,6 +2,7 @@ module Main where
 
 import Prelude hiding ((.), id)
 import Control.Category
+import Control.Monad
 import Semilattice
 import Data.String
 import Data.List as L
@@ -62,24 +63,27 @@ shipmentBag piShipment piVan piFrame piDT = propagateMapEntry piDT . shipmentDT 
 
 shipmentPositionsDone :: Homo Shipment (GrowingSet PositionInShipment)
 shipmentPositionsDone = propagateMapKeys 
---
 
-test :: (Eq a, BoundedJoinSemilattice a) => Int -> Int -> a -> [a] -> Bool
-test permNo dupNo final as = all (`ascendsTo` final) $ L.take permNo $ L.permutations $ duplicates dupNo as
+-- checks
+alwaysAscendsTo :: (Eq a, BoundedJoinSemilattice a) => Int -> a -> [a] -> Bool
+alwaysAscendsTo samplesNo final as = all (`ascendsTo'` final) $ L.take samplesNo $ scenarios as
+
+scenarios :: [a] -> [[[a]]]
+scenarios as = mconcat $ groupings <$> (L.permutations $ duplicates as)
     where
-        duplicates :: Int -> [a] -> [a]
-        duplicates n as = mconcat $ replicate n as
-
-groupings :: Show a => [a] -> [[[a]]]
-groupings [a] = [[[a]]]
-groupings as =  mconcat $ ((\(i :: [a], t :: [a]) -> ([i] <>) <$> groupings t) <$> zip (init $ tail $ inits as) (init $ tail $ tails as)) <> [[[as]]]
+    groupings :: [a] -> [[[a]]]
+    groupings [a] = [[[a]]]
+    groupings as =  mconcat $ ((\(i :: [a], t :: [a]) -> ([i] <>) <$> groupings t) <$> zip (init $ tail $ inits as) (init $ tail $ tails as)) <> [[[as]]]
+    duplicates :: [a] -> [a]
+    duplicates as = mconcat $ replicate 2 as
 
 main :: IO ()
 main = do
-    -- print $ foo [[1],[2]] [[3], [4]]-- [ [[1],[2],[3]], [[1,2],[3]], [[1],[2,3]] ]
-    print $ groupings [1,2] -- [ [[1],[2],[3]], [[1,2],[3]], [[1],[2,3]] ]
-    print $ groupings [1,2,3] -- [ [[1],[2],[3]], [[1,2],[3]], [[1],[2,3]] ]
-    print $ groupings [1,2,3,4] -- [ [[1],[2],[3]], [[1,2],[3]], [[1],[2,3]] ]
+    -- number of possible permuting/grouping/duplicating scenarios for n events
+    print $ length $ scenarios [1..1] -- 4
+    print $ length $ scenarios [1..2] -- 192
+    print $ length $ scenarios [1..3] -- 23040
+    print $ length $ scenarios [1..4] -- 5160960
     let events = 
             [
                 batchPicked 0 0 0 0 "apple" 0 3, 
@@ -94,7 +98,4 @@ main = do
                 vanLoaded 0 "V1"
             ]
     let expected = GrowingMap {growingMap = fromList [(0,(Unambiguous "V1",GrowingMap {growingMap = fromList [(0,(Unambiguous "F1",GrowingMap {growingMap = fromList [(0,(Unambiguous "DT1",GrowingMap {growingMap = fromList [(0,GrowingMap {growingMap = fromList [("apple",GrowingMap {growingMap = fromList [(0,Increasing {increasing = 3})]}),("coconut",GrowingMap {growingMap = fromList [(2,Increasing {increasing = 1}),(3,Increasing {increasing = 1})]})]}),(1,GrowingMap {growingMap = fromList [("banana",GrowingMap {growingMap = fromList [(1,Increasing {increasing = 4})]})]}),(2,GrowingMap {growingMap = fromList [("donut",GrowingMap {growingMap = fromList [(4,Increasing {increasing = 5})]})]})]})),(1,(Unambiguous "DT2",GrowingMap {growingMap = fromList [(0,GrowingMap {growingMap = fromList [("cucumber",GrowingMap {growingMap = fromList [(5,Increasing {increasing = 7})]})]})]}))]}))]}))]}
-    print $ test 100000 2 expected events -- True
-    -- let expected' = bag "apple" (batch 0 3) \/ bag "coconut" (batch 2 1) \/ bag "coconut" (batch 3 1)
-    -- print $ test 10000 4 expected' $ homo (shipmentBag 0 0 0 0) <$> events -- True
-    print $ runProc (Proc (shipmentDTLPN 0 0 1) id) events -- True
+    print $ alwaysAscendsTo 10000 expected events -- True

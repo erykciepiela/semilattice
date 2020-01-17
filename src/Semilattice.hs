@@ -10,7 +10,8 @@ module Semilattice (
     bjsscan,
     ascends,
     ascendsTowards,
-    ascendsTo,    
+    ascendsTo,
+    ascendsTo',    
     isDescending,
     Homo(..),
     Based(..),
@@ -138,6 +139,10 @@ ascendsTo ss final = let ss' = bjsscan ss in isAscending ss' && L.all (<+ final)
         isAscending [s] = True
         isAscending (s1:rest@(s2:_)) = s1 <+ s2 && isAscending rest
 
+ascendsTo' :: (Eq s, BoundedJoinSemilattice s) => [[s]] -> s -> Bool
+ascendsTo' [] final = final == bottom
+ascendsTo' ss final = ascendsTo (bjsconcat <$> ss) final
+
 isDescending :: (Eq s, BoundedJoinSemilattice s) => [s] -> Bool
 isDescending [] = True
 isDescending [s] = True
@@ -219,9 +224,6 @@ newtype Increasing a = Increasing { increasing :: a }
 
 deriving instance Show a => Show (Increasing a)
 deriving instance Eq a => Eq (Increasing a)
-
-instance Num a => Num (Increasing a) where
-    fromInteger = Increasing . fromInteger
 
 instance Ord a => PartialOrd (Increasing a) where
     (Increasing a) +> (Increasing b) = a >= b
