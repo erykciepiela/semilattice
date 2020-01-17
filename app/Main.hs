@@ -6,6 +6,7 @@ import Semilattice
 import Data.String
 import Data.List as L
 import Data.Map as M
+import Debug.Trace
 
 -- domain types
 type SKU = String
@@ -64,16 +65,21 @@ shipmentPositionsDone = propagateMapKeys
 --
 
 test :: (Eq a, BoundedJoinSemilattice a) => Int -> Int -> a -> [a] -> Bool
-test permNo dupNo final as = all (`ascendsTo` final) $ L.take permNo $ permuteDuplicates dupNo as
+test permNo dupNo final as = all (`ascendsTo` final) $ L.take permNo $ L.permutations $ duplicates dupNo as
     where
-        permuteDuplicates :: Int -> [a] -> [[a]]
-        permuteDuplicates duplicates as = L.permutations $ duplicate duplicates as
-            where
-                duplicate :: Int -> [a] -> [a]
-                duplicate n as = mconcat $ replicate n as
+        duplicates :: Int -> [a] -> [a]
+        duplicates n as = mconcat $ replicate n as
+
+groupings :: Show a => [a] -> [[[a]]]
+groupings [a] = [[[a]]]
+groupings as =  mconcat $ ((\(i :: [a], t :: [a]) -> ([i] <>) <$> groupings t) <$> zip (init $ tail $ inits as) (init $ tail $ tails as)) <> [[[as]]]
 
 main :: IO ()
 main = do
+    -- print $ foo [[1],[2]] [[3], [4]]-- [ [[1],[2],[3]], [[1,2],[3]], [[1],[2,3]] ]
+    print $ groupings [1,2] -- [ [[1],[2],[3]], [[1,2],[3]], [[1],[2,3]] ]
+    print $ groupings [1,2,3] -- [ [[1],[2],[3]], [[1,2],[3]], [[1],[2,3]] ]
+    print $ groupings [1,2,3,4] -- [ [[1],[2],[3]], [[1,2],[3]], [[1],[2,3]] ]
     let events = 
             [
                 batchPicked 0 0 0 0 "apple" 0 3, 
@@ -89,7 +95,6 @@ main = do
             ]
     let expected = GrowingMap {growingMap = fromList [(0,(Unambiguous "V1",GrowingMap {growingMap = fromList [(0,(Unambiguous "F1",GrowingMap {growingMap = fromList [(0,(Unambiguous "DT1",GrowingMap {growingMap = fromList [(0,GrowingMap {growingMap = fromList [("apple",GrowingMap {growingMap = fromList [(0,Increasing {increasing = 3})]}),("coconut",GrowingMap {growingMap = fromList [(2,Increasing {increasing = 1}),(3,Increasing {increasing = 1})]})]}),(1,GrowingMap {growingMap = fromList [("banana",GrowingMap {growingMap = fromList [(1,Increasing {increasing = 4})]})]}),(2,GrowingMap {growingMap = fromList [("donut",GrowingMap {growingMap = fromList [(4,Increasing {increasing = 5})]})]})]})),(1,(Unambiguous "DT2",GrowingMap {growingMap = fromList [(0,GrowingMap {growingMap = fromList [("cucumber",GrowingMap {growingMap = fromList [(5,Increasing {increasing = 7})]})]})]}))]}))]}))]}
     print $ test 100000 2 expected events -- True
-    
     -- let expected' = bag "apple" (batch 0 3) \/ bag "coconut" (batch 2 1) \/ bag "coconut" (batch 3 1)
     -- print $ test 10000 4 expected' $ homo (shipmentBag 0 0 0 0) <$> events -- True
     print $ runProc (Proc (shipmentDTLPN 0 0 1) id) events -- True

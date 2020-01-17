@@ -31,6 +31,7 @@ default-extensions:
 - OverloadedStrings
 - ExistentialQuantification
 - ConstraintKinds
+- ScopedTypeVariables
 
 
 dependencies:
