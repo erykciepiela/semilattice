@@ -36,6 +36,7 @@ module Semilattice (
     propagateMapEntry,
     propagateMapKeys,
     propagateMapValues,
+    GrowingList(..),
     --
     propagateFst,
     propagateSnd
@@ -332,9 +333,6 @@ data Same a = Unknown | Unambiguous a | Ambiguous (Set a)
 deriving instance Show a => Show (Same a)
 deriving instance Eq a => Eq (Same a)
 
-instance IsString a => IsString (Same a) where
-    fromString = Unambiguous . fromString
-
 instance Ord a => PartialOrd (Same a) where
     Unknown +> Unknown = True
     Unknown +> _ = False
@@ -443,20 +441,27 @@ foo' :: Num n => Mono (GrowingMap k (Increasing n)) (Increasing n)
 foo' = Mono $ \(GrowingMap map) -> Increasing $ sum $ increasing <$> map
 
 --
--- instance JoinSemilattice a => JoinSemilattice [a] where
---     l1 \/ l2 = foldl1 (\/) <$> transpose [l1, l2]
+newtype GrowingList a = GrowingList { growingList :: [a] }
 
--- instance BoundedJoinSemilattice a => BoundedJoinSemilattice [a] where
---     bottom = mempty
+deriving instance Eq a => Eq (GrowingList a)
 
--- instance Based a b => Based [a] (Int, b) where
---     jirelement (n, b) = replicate n bottom <> [jirelement b]
+instance PartialOrd a => PartialOrd (GrowingList a) where
+    GrowingList as1 +> GrowingList as2 = length as1 >= length as2 && and (zipWith (+>) as1 as2)
 
+instance JoinSemilattice a => JoinSemilattice (GrowingList a) where
+    GrowingList l1 \/ GrowingList l2 = GrowingList $ foldl1 (\/) <$> transpose [l1, l2]
 
--- propagateListElement :: BoundedJoinSemilattice a => Int -> [a] -> a
--- propagateListElement i l 
---   | i >= length l = bottom
---   | otherwise = l !! i
+instance BoundedJoinSemilattice a => BoundedJoinSemilattice (GrowingList a) where
+    bottom = GrowingList []
+
+instance (BoundedJoinSemilattice a, Based a b) => Based (GrowingList a) (Int, b) where
+    jirelement (n, b) = GrowingList $ replicate n bottom <> [jirelement b]
+
+propagateListLength :: BoundedJoinSemilattice a => Homo (GrowingList a) (Increasing Int)
+propagateListLength = Homo $ \(GrowingList l) -> Increasing (length l)
+
+propagateListElement :: BoundedJoinSemilattice a => Int -> Homo (GrowingList a) a
+propagateListElement i = Homo $ \(GrowingList l) -> if i >= length l then bottom else l !! i
 
 -- 
 instance (PartialOrd a, PartialOrd b) => PartialOrd (a, b) where
