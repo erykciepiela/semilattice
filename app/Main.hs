@@ -65,7 +65,7 @@ shipmentPositionsDone :: Homo Shipment (GrowingSet PositionInShipment)
 shipmentPositionsDone = propagateMapKeys 
 
 -- | Messes up original list by doubling each element, permuting elements and grouping subsequences of elements.
--- | Returns list of possible list of groups of elements
+-- | Returns list of messed up list of groups (lists) of elements
 messedUp :: [a] -> [[[a]]]
 messedUp originalList = mconcat $ groupings <$> L.permutations (duplicates originalList)
     where
