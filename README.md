@@ -81,4 +81,5 @@
             1. Monotonic mappings between JSs are a category
         1. If `f (a \/ b) = f a \/ f b` and `f 0 = 0` then `f` it's not only *monotonic* but *homomorphic*
             1. Homomorphic mappings between JSs are a category
-    
+    1. References
+        1. *Introduction to Lattices and Order*, 2nd edition, 2012, B. A. Davey, H. A. Priestley    
