@@ -64,9 +64,10 @@ shipmentBag piShipment piVan piFrame piDT = propagateMapEntry piDT . shipmentDT 
 shipmentPositionsDone :: Homo Shipment (GrowingSet PositionInShipment)
 shipmentPositionsDone = propagateMapKeys 
 
--- checks
+-- | Messes up original list by doubling each element, permuting elements and grouping subsequences of elements.
+-- | Returns list of possible list of groups of elements
 messUp :: [a] -> [[[a]]]
-messUp as = mconcat $ groupings <$> L.permutations (duplicates as)
+messUp originalList = mconcat $ groupings <$> L.permutations (duplicates originalList)
     where
     groupings :: [a] -> [[[a]]]
     groupings [a] = [[[a]]]
@@ -96,4 +97,4 @@ main = do
                 vanLoaded 0 "V1"
             ]
     let expectedState = GrowingMap {growingMap = fromList [(0,(Unambiguous "V1",GrowingMap {growingMap = fromList [(0,(Unambiguous "F1",GrowingMap {growingMap = fromList [(0,(Unambiguous "DT1",GrowingMap {growingMap = fromList [(0,GrowingMap {growingMap = fromList [("apple",GrowingMap {growingMap = fromList [(0,Increasing {increasing = 3})]}),("coconut",GrowingMap {growingMap = fromList [(2,Increasing {increasing = 1}),(3,Increasing {increasing = 1})]})]}),(1,GrowingMap {growingMap = fromList [("banana",GrowingMap {growingMap = fromList [(1,Increasing {increasing = 4})]})]}),(2,GrowingMap {growingMap = fromList [("donut",GrowingMap {growingMap = fromList [(4,Increasing {increasing = 5})]})]})]})),(1,(Unambiguous "DT2",GrowingMap {growingMap = fromList [(0,GrowingMap {growingMap = fromList [("cucumber",GrowingMap {growingMap = fromList [(5,Increasing {increasing = 7})]})]})]}))]}))]}))]}
-    print $ all (`isEventuallyConsistent` expectedState) (L.take 10000 (messUp events))  -- True
+    print $ all (`isEventuallyConsistent` expectedState) (L.take 100000 (messUp events))  -- True
