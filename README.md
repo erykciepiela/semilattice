@@ -13,9 +13,10 @@
         1. Transaction-less - consequence of the above
         1. Contradictory writes - possible but explicitly modeled
     1. New ACID
-        1. Associativity - `a \/ (b \/ c) == (a \/ b) \/ c` - handles arbitrary grouping of writes
-        1. Commutativity - `a \/ b == b \/ a` - handles out-of-order writes
-        1. Idempotence - `a \/ a == a` - handles duplicate writes
+        1. Let `+` be an "append" opertor
+        1. Associativity - `a + (b + c) == (a + b) + c`, handles arbitrary grouping of appends
+        1. Commutativity - `a + b == b + a` - handles out-of-order appends
+        1. Idempotence - `a + a == a` - handles duplicate appends
         1. Distributed
     1. *Join semilattice*
         1. Abstraction from maths that is equivalent to ACID
@@ -77,7 +78,7 @@
         1. Notice this is a function from one BJS to another BJS
         1. Left-hand side BJS will only grow, so will the right-hand side BJS
         1. As left-hand side BJS grows, so will the right-hand side BJS - it's a *monotonic* function
-    1. SemiLat category
-        1. BJSs as objects
-        2. Homomorphisms between BJSs as arrows 
+            1. Monotonic mappings between JSs are a category
+        1. If `f (a \/ b) = f a \/ f b` and `f 0 = 0` then `f` it's not only *monotonic* but *homomorphic*
+            1. Homomorphic mappings between JSs are a category
     
