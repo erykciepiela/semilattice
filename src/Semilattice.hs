@@ -463,6 +463,9 @@ propagateListLength = Homo $ \(GrowingList l) -> Increasing (length l)
 propagateListElement :: BoundedJoinSemilattice a => Int -> Homo (GrowingList a) a
 propagateListElement i = Homo $ \(GrowingList l) -> if i >= length l then bottom else l !! i
 
+propagateListElements :: BoundedJoinSemilattice a => Int -> Homo (GrowingList a) a
+propagateListElements i = Homo $ \(GrowingList l) -> bjsconcat l
+
 -- 
 instance (PartialOrd a, PartialOrd b) => PartialOrd (a, b) where
     (a1, b1) +> (a2, b2) = a1 +> a2 &&  b1 +> b2
