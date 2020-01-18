@@ -232,7 +232,7 @@ instance BoundedJoinSemilattice () where
     bottom = mempty
 
 instance Based () () where
-    jirelement = id
+    jirelement () = ()
     decompose () = S.singleton ()
 
 --
@@ -246,7 +246,7 @@ instance BoundedJoinSemilattice (Proxy a) where
     bottom = mempty
 
 instance Based (Proxy a) () where
-    jirelement _ = Proxy
+    jirelement () = Proxy
     decompose Proxy = S.singleton ()
 
 --
@@ -390,7 +390,9 @@ instance Ord a => BoundedJoinSemilattice (Same a) where
 
 instance Ord a => Based (Same a) a where
     jirelement = Unambiguous
-    decompose = undefined -- ?
+    decompose Unknown = mempty
+    decompose (Unambiguous a) = S.singleton a
+    decompose (Ambiguous as) = as
 
 
 propagateSame :: (Ord a, Ord b) => (a -> b) -> Same a -> Same b
