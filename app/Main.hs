@@ -7,6 +7,7 @@ import Semilattice
 import Data.String
 import Data.List as L
 import Data.Map as M
+import qualified Data.Set as S
 import Debug.Trace
 
 -- domain types
@@ -34,16 +35,16 @@ type Shipment = GrowingMap PositionInShipment (Same LPN, Van)
 
 -- join-irreducible elements
 batchPicked :: PositionInShipment -> PositionInVan -> PositionInFrame -> PositionInDT -> SKU -> ST -> Qty -> Shipment
-batchPicked pishipment pivan piframe pidt skuId st qty = jirelement (pishipment, (bottom, jirelement (pivan, (bottom, jirelement (piframe, (bottom, jirelement (pidt, jirelement (skuId, jirelement (st, jirelement qty)))))))))
+batchPicked pishipment pivan piframe pidt skuId st qty = jirelement (pishipment, Right (pivan, Right (piframe, Right (pidt, (skuId, (st, qty))))))
 
 dtManufactured :: PositionInShipment -> PositionInVan -> PositionInFrame -> LPN -> Shipment
-dtManufactured pishipment pivan piframe dtlpn = jirelement (pishipment, (bottom, jirelement (pivan, (bottom, jirelement (piframe, (jirelement dtlpn, bottom))))))
+dtManufactured pishipment pivan piframe dtlpn = jirelement (pishipment, Right (pivan, Right (piframe, Left dtlpn)))
 
 frameManufactured :: PositionInShipment -> PositionInVan -> LPN -> Shipment
-frameManufactured pishipment pivan frameLpn = jirelement (pishipment, (bottom, jirelement (pivan, (jirelement frameLpn, bottom))))
+frameManufactured pishipment pivan frameLpn = jirelement (pishipment, Right (pivan, Left frameLpn))
 
 vanManufactured :: PositionInShipment -> LPN -> Shipment
-vanManufactured pishipment vanLpn = jirelement (pishipment, (jirelement vanLpn, bottom))
+vanManufactured pishipment vanLpn = jirelement (pishipment, Left vanLpn)
 
 -- homomorphisms
 shipmentVan :: PositionInShipment -> Homo Shipment Van
@@ -98,3 +99,9 @@ main = do
             ]
     let expectedState = GrowingMap {growingMap = fromList [(0,(Unambiguous "V1",GrowingMap {growingMap = fromList [(0,(Unambiguous "F1",GrowingMap {growingMap = fromList [(0,(Unambiguous "DT1",GrowingMap {growingMap = fromList [(0,GrowingMap {growingMap = fromList [("apple",GrowingMap {growingMap = fromList [(0,Increasing {increasing = 3})]}),("coconut",GrowingMap {growingMap = fromList [(2,Increasing {increasing = 1}),(3,Increasing {increasing = 1})]})]}),(1,GrowingMap {growingMap = fromList [("banana",GrowingMap {growingMap = fromList [(1,Increasing {increasing = 4})]})]}),(2,GrowingMap {growingMap = fromList [("donut",GrowingMap {growingMap = fromList [(4,Increasing {increasing = 5})]})]})]})),(1,(Unambiguous "DT2",GrowingMap {growingMap = fromList [(0,GrowingMap {growingMap = fromList [("donut",GrowingMap {growingMap = fromList [(4,Increasing {increasing = 7})]})]})]}))]}))]}))]}
     print $ all (`isEventuallyConsistent` expectedState) (L.take 100000 (messedUp events))  -- True
+    print $ (`propagatedHomo` prop) events `ascendsTowards` (GrowingSet {growingSet = S.fromList ["apple","coconut"]})
+    -- print $ all (`isEventuallyConsistent` (GrowingSet {growingSet = S.fromList ["apple","coconut"]})) ((propagateHomo prop . fmap (fmap bjsconcat) <$> (L.take 100000 (messedUp events))))
+
+-- what SKUs are in given bag
+prop :: Homo Shipment (GrowingSet SKU)
+prop = propagateMapKeys . propagateMapEntry 0 . propagateSnd . propagateMapEntry 0 . propagateSnd . propagateMapEntry 0 . propagateSnd . propagateMapEntry 0

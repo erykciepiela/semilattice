@@ -13,7 +13,14 @@ module Semilattice (
     ascendsTo,
     isEventuallyConsistent,    
     isDescending,
+    isAscending,
+    isAscendingTowards,
     Homo(..),
+    propagateHomo,
+    propagatedHomo,
+    Mono(..),
+    propagateMono,
+    propagatedMono,
     Based(..),
     Proc(..),
     runProc,
@@ -125,11 +132,14 @@ ascends ss = let ss' = bjsscan ss in isAscending ss'
 ascendsTowards :: (Eq s, BoundedJoinSemilattice s) => [s] -> s -> Bool
 ascendsTowards [] final = final == bottom
 ascendsTowards ss final = let ss' = bjsscan ss in isAscending ss' && L.all (<+ final) ss'
-    where
-        isAscending :: (Eq s, BoundedJoinSemilattice s) => [s] -> Bool
-        isAscending [] = True
-        isAscending [s] = True
-        isAscending (s1:rest@(s2:_)) = s1 <+ s2 && isAscending rest
+
+isAscending :: (Eq s, PartialOrd s) => [s] -> Bool
+isAscending [] = True
+isAscending [s] = True
+isAscending (s1:rest@(s2:_)) = s1 <+ s2 && isAscending rest
+
+isAscendingTowards :: (Eq s, PartialOrd s) => [s] -> s -> Bool
+isAscendingTowards ss s = isAscending ss && last ss == s -- assuming ss not empty
 
 ascendsTo :: (Eq s, BoundedJoinSemilattice s) => [s] -> s -> Bool
 ascendsTo [] final = final == bottom
@@ -150,9 +160,10 @@ isDescending [s] = True
 isDescending (s1:rest@(s2:_)) = s1 +> s2 && isDescending rest
 
 --
-class JoinSemilattice s => Based s b | s -> b where
+class BoundedJoinSemilattice s => Based s b | s -> b where
     -- join-irreducible element
     jirelement :: b -> s
+    decompose :: s -> Set b
 
 bconcat :: (BoundedJoinSemilattice s, Based s b) => [b] -> s
 bconcat bs = bjsconcat $ jirelement <$> bs
@@ -167,6 +178,11 @@ instance Category Homo where
 propagateHomo :: (BoundedJoinSemilattice a, BoundedJoinSemilattice b) => Homo a b -> [a] -> [b]
 propagateHomo (Homo f) = scanl (\b a -> b \/ f a) bottom
 
+propagatedHomo :: (BoundedJoinSemilattice a, BoundedJoinSemilattice b) => [a] -> Homo a b -> [b]
+propagatedHomo = flip propagateHomo
+
+-- propagatedHomo' :: (BoundedJoinSemilattice a, BoundedJoinSemilattice b) => [[a]] -> Homo a b -> [b]
+-- propagatedHomo' ass (Homo f) = scanl (\b a -> b \/ f a) bottom
 --
 newtype Mono a b = Mono { mono :: a -> b }
 
@@ -174,8 +190,11 @@ instance Category Mono where
     id = Mono id
     m1 . m2 = Mono $ mono m1 . mono m2 
 
-propagateMono :: BoundedJoinSemilattice a => Mono a b -> [a] -> [b]
+propagateMono :: (BoundedJoinSemilattice a, PartialOrd b) => Mono a b -> [a] -> [b]
 propagateMono (Mono f) as = f <$> scanl (\/) bottom as 
+
+propagatedMono :: (BoundedJoinSemilattice a, PartialOrd b) => [a] -> Mono a b -> [b]
+propagatedMono = flip propagateMono
 
 data Proc a b = forall s. BoundedJoinSemilattice s => Proc { phomo :: Homo a s, pf :: s -> b }
 
@@ -210,6 +229,7 @@ instance BoundedJoinSemilattice () where
 
 instance Based () () where
     jirelement = id
+    decompose () = S.singleton ()
 
 --
 instance PartialOrd (Proxy a) where
@@ -223,6 +243,7 @@ instance BoundedJoinSemilattice (Proxy a) where
 
 instance Based (Proxy a) () where
     jirelement _ = Proxy
+    decompose Proxy = S.singleton ()
 
 --
 newtype Increasing a = Increasing { increasing :: a }
@@ -241,6 +262,7 @@ instance (Ord a, Bounded a) => BoundedJoinSemilattice (Increasing a) where
 
 instance (Ord a, Bounded a) => Based (Increasing a) a where
     jirelement = Increasing
+    decompose = S.singleton . increasing
 
 propagateIncrease :: (a -> b) -> Increasing a -> Increasing b
 propagateIncrease f (Increasing a) = Increasing (f a) -- f must be monotone!
@@ -277,6 +299,7 @@ instance (Ord a, Bounded a) => BoundedJoinSemilattice (Decreasing a) where
 
 instance (Ord a, Bounded a) => Based (Decreasing a) a where
     jirelement = Decreasing
+    decompose = S.singleton . decreasing
 
 propagateDecrease :: (a -> b) -> Decreasing a -> Decreasing b
 propagateDecrease f (Decreasing a) = Decreasing (f a) -- f must be monotone!
@@ -306,6 +329,7 @@ instance Ord a => BoundedJoinSemilattice (GrowingSet a) where
 
 instance Ord a => Based (GrowingSet a) a where
     jirelement = GrowingSet . S.singleton
+    decompose = growingSet
 
 propagateGrowth :: (Ord a, Ord b) => (a -> b) -> GrowingSet a -> GrowingSet b
 propagateGrowth f = GrowingSet . S.map f . growingSet
@@ -327,6 +351,7 @@ instance (Ord a, Enum a, Bounded a) => BoundedJoinSemilattice (ShrinkingSet a) w
 
 instance (Ord a, Enum a, Bounded a) => Based (ShrinkingSet a) a where
     jirelement a = ShrinkingSet $ S.delete a (shrinkingSet bottom)
+    decompose = shrinkingSet -- ?
 
 propagateShrink :: (Ord a, Ord b) => (a -> b) -> ShrinkingSet a -> ShrinkingSet b
 propagateShrink f = ShrinkingSet . S.map f . shrinkingSet
@@ -361,6 +386,7 @@ instance Ord a => BoundedJoinSemilattice (Same a) where
 
 instance Ord a => Based (Same a) a where
     jirelement = Unambiguous
+    decompose = undefined -- ?
 
 
 propagateSame :: (Ord a, Ord b) => (a -> b) -> Same a -> Same b
@@ -382,6 +408,7 @@ instance BoundedJoinSemilattice a => BoundedJoinSemilattice (Identity a) where
 
 instance Based a b => Based (Identity a) b where
     jirelement = Identity . jirelement
+    decompose (Identity a) = decompose a
 
 --
 instance PartialOrd a => PartialOrd (Maybe a) where
@@ -398,8 +425,9 @@ instance JoinSemilattice a => JoinSemilattice (Maybe a) where
 instance JoinSemilattice a => BoundedJoinSemilattice (Maybe a) where
     bottom = Nothing
 
-instance JoinSemilattice a => Based (Maybe a) a where
-    jirelement = Just
+instance Based a b => Based (Maybe a) b where
+    jirelement = Just . jirelement
+    decompose (Just a) = decompose a
 
 propagateMaybe :: BoundedJoinSemilattice a => Maybe a -> a -- homomorphism
 propagateMaybe Nothing = bottom
@@ -426,8 +454,10 @@ instance (Ord k, JoinSemilattice v) => JoinSemilattice (GrowingMap k v) where
 instance (Ord k, BoundedJoinSemilattice v) => BoundedJoinSemilattice (GrowingMap k v) where
     bottom = GrowingMap mempty
 
-instance (Ord k, BoundedJoinSemilattice v) => Based (GrowingMap k v) (k, v) where
-    jirelement (k, v) = GrowingMap $ M.singleton k v
+instance (Ord k, Based v b) => Based (GrowingMap k v) (k, b) where
+    jirelement (k, b) = GrowingMap $ M.singleton k (jirelement b)
+    -- decompose (GrowingMap a) = decompose a
+
 
 propagateMap :: (Ord k, BoundedJoinSemilattice s, BoundedJoinSemilattice s') => Homo s s' -> Homo (GrowingMap k s) (GrowingMap k s')
 propagateMap h = Homo $ GrowingMap . fmap (homo h) . growingMap
@@ -486,8 +516,9 @@ propagateSnd = Homo snd
 instance (BoundedJoinSemilattice a, BoundedJoinSemilattice b) => BoundedJoinSemilattice (a, b) where
     bottom = (bottom, bottom)
 
-instance (Based a b, Based c d) => Based (a, c) (b, d) where
-    jirelement (b, d) = (jirelement b, jirelement d) 
+instance (Based a b, Based c d) => Based (a, c) (Either b d) where
+    jirelement (Left b) = (jirelement b, bottom) 
+    jirelement (Right d) = (bottom, jirelement d) 
 
 --
 -- instance (JoinSemilattice a, JoinSemilattice b, JoinSemilattice c) => JoinSemilattice (a, b, c) where

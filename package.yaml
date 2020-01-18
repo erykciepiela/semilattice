@@ -32,6 +32,7 @@ default-extensions:
 - ExistentialQuantification
 - ConstraintKinds
 - ScopedTypeVariables
+- TypeSynonymInstances
 
 
 dependencies:
