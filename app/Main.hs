@@ -34,8 +34,8 @@ type Van = GrowingMap PositionInVan (Same LPN, Frame)
 type Shipment = GrowingMap PositionInShipment (Same LPN, Van)
 
 -- join-irreducible elements
-batchPicked :: PositionInShipment -> PositionInVan -> PositionInFrame -> PositionInDT -> SKU -> ST -> Qty -> Shipment
-batchPicked pishipment pivan piframe pidt skuId st qty = jirelement (pishipment, Right (pivan, Right (piframe, Right (pidt, (skuId, (st, qty))))))
+picked :: PositionInShipment -> PositionInVan -> PositionInFrame -> PositionInDT -> SKU -> ST -> Qty -> Shipment
+picked pishipment pivan piframe pidt skuId st qty = jirelement (pishipment, Right (pivan, Right (piframe, Right (pidt, (skuId, (st, qty))))))
 
 dtManufactured :: PositionInShipment -> PositionInVan -> PositionInFrame -> LPN -> Shipment
 dtManufactured pishipment pivan piframe dtlpn = jirelement (pishipment, Right (pivan, Right (piframe, Left dtlpn)))
@@ -85,13 +85,13 @@ main = do
     -- print $ length $ messedUp [1..4] -- for 4 event it's > 5M
     let events = 
             [
-                batchPicked 0 0 0 0 "apple" 0 3,  -- 3 apples moved from ST 0 to bag 0 in dt 0 in frame 0 in van 0
-                batchPicked 0 0 0 1 "banana" 1 2, -- 2 bananas moved from ST 1 to bag 0 in dt 0 in frame 0 in van 0, actually it was...
-                batchPicked 0 0 0 1 "banana" 1 4, -- 4 bananas moved from ST 1 to bag 0 in dt 0 in frame 0 in van 0, and it's ok as long as 4 >= 2
-                batchPicked 0 0 0 0 "coconut" 2 1,-- 1 coconut moved from ST 2 to bag 0 in dt 0 in frame 0 in van 0, but it's too few, and there's no more cocunuts in ST 2, so...
-                batchPicked 0 0 0 0 "coconut" 3 1,-- 1 coconut moved from ST 3 to bag 0 in dt 0 in frame 0 in van 0, but it's too few, we need more...
-                batchPicked 0 0 0 2 "donut" 4 5,  -- 5 donuts moved from ST 4 to bag 2 in dt 0 in frame 0 in van 0, and from the same ST but to different DT...
-                batchPicked 0 0 1 0 "donut" 4 7,  -- 7 donuts moved from ST 4 to bag 0 in dt 1 in frame 0 in van 0
+                picked 0 0 0 0 "apple" 0 3,  -- 3 apples moved from ST 0 to bag 0 in dt 0 in frame 0 in van 0
+                picked 0 0 0 1 "banana" 1 2, -- 2 bananas moved from ST 1 to bag 0 in dt 0 in frame 0 in van 0, actually it was...
+                picked 0 0 0 1 "banana" 1 4, -- 4 bananas moved from ST 1 to bag 0 in dt 0 in frame 0 in van 0, and it's ok as long as 4 >= 2
+                picked 0 0 0 0 "coconut" 2 1,-- 1 coconut moved from ST 2 to bag 0 in dt 0 in frame 0 in van 0, but it's too few, and there's no more cocunuts in ST 2, so...
+                picked 0 0 0 0 "coconut" 3 1,-- 1 coconut moved from ST 3 to bag 0 in dt 0 in frame 0 in van 0, but it's too few, we need more...
+                picked 0 0 0 2 "donut" 4 5,  -- 5 donuts moved from ST 4 to bag 2 in dt 0 in frame 0 in van 0, and from the same ST but to different DT...
+                picked 0 0 1 0 "donut" 4 7,  -- 7 donuts moved from ST 4 to bag 0 in dt 1 in frame 0 in van 0
                 dtManufactured 0 0 0 "DT1",       -- dt 0 in frame 0 in van 0 has been picket totally and it has LPN DT1
                 dtManufactured 0 0 1 "DT2",       -- dt 1 in frame 0 in van 0 has been picket totally and it has LPN DT2
                 frameManufactured 0 0 "F1",       -- frame 0 in van 0 has been loaded and it has LPN F1
