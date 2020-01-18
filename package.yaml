@@ -33,6 +33,7 @@ default-extensions:
 - ConstraintKinds
 - ScopedTypeVariables
 - TypeSynonymInstances
+- TupleSections
 
 
 dependencies:

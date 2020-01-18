@@ -160,9 +160,13 @@ isDescending [s] = True
 isDescending (s1:rest@(s2:_)) = s1 +> s2 && isDescending rest
 
 --
-class BoundedJoinSemilattice s => Based s b | s -> b where
+class (BoundedJoinSemilattice s, Ord b) => Based s b | s -> b where
+    -- minimal (jirelement|compose, decompose)
     -- join-irreducible element
     jirelement :: b -> s
+    jirelement b = compose $ S.singleton b
+    compose :: Set b -> s
+    compose = S.foldl' (\s b -> s \/ jirelement b) bottom 
     decompose :: s -> Set b
 
 bconcat :: (BoundedJoinSemilattice s, Based s b) => [b] -> s
@@ -455,8 +459,8 @@ instance (Ord k, BoundedJoinSemilattice v) => BoundedJoinSemilattice (GrowingMap
     bottom = GrowingMap mempty
 
 instance (Ord k, Based v b) => Based (GrowingMap k v) (k, b) where
-    jirelement (k, b) = GrowingMap $ M.singleton k (jirelement b)
-    -- decompose (GrowingMap a) = decompose a
+    jirelement (k, b) = GrowingMap $ M.singleton k $ jirelement b
+    decompose (GrowingMap m) = S.fromList (M.toList m >>= (\(k, v) -> (k,) <$> S.toList (decompose v)))
 
 
 propagateMap :: (Ord k, BoundedJoinSemilattice s, BoundedJoinSemilattice s') => Homo s s' -> Homo (GrowingMap k s) (GrowingMap k s')
@@ -488,8 +492,9 @@ instance JoinSemilattice a => JoinSemilattice (GrowingList a) where
 instance BoundedJoinSemilattice a => BoundedJoinSemilattice (GrowingList a) where
     bottom = GrowingList []
 
-instance (BoundedJoinSemilattice a, Based a b) => Based (GrowingList a) (Int, b) where
+instance Based a b => Based (GrowingList a) (Int, b) where
     jirelement (n, b) = GrowingList $ replicate n bottom <> [jirelement b]
+    decompose (GrowingList l) = S.fromList (zip [0..] l >>= (\(i, e) -> (i,) <$> S.toList (decompose e)))
 
 propagateListLength :: BoundedJoinSemilattice a => Homo (GrowingList a) (Increasing Int)
 propagateListLength = Homo $ \(GrowingList l) -> Increasing (length l)
@@ -519,6 +524,7 @@ instance (BoundedJoinSemilattice a, BoundedJoinSemilattice b) => BoundedJoinSemi
 instance (Based a b, Based c d) => Based (a, c) (Either b d) where
     jirelement (Left b) = (jirelement b, bottom) 
     jirelement (Right d) = (bottom, jirelement d) 
+    decompose (a, c) = S.fromList (Left <$> S.toList (decompose a)) `S.union` S.fromList (Right <$> S.toList (decompose c))
 
 --
 -- instance (JoinSemilattice a, JoinSemilattice b, JoinSemilattice c) => JoinSemilattice (a, b, c) where
@@ -561,8 +567,8 @@ instance (BoundedJoinSemilattice a, JoinSemilattice b) => BoundedJoinSemilattice
 instance (Based a b, Based c d) => Based (Either a c) (Either b d) where
     jirelement (Left b) = Left $ jirelement b
     jirelement (Right d) = Right $ jirelement d
-
-
+    decompose (Left a) = S.fromList (Left <$> S.toList (decompose a))
+    decompose (Right c) = S.fromList (Right <$> S.toList (decompose c))
 
 -- | More on homomorphisms
 -- @f@ is homomorphisms if and only if @f (x \/ y) = f x \/ f y@
