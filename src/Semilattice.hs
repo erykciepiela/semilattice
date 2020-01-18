@@ -179,6 +179,12 @@ instance Category Homo where
     id = Homo id
     h1 . h2 = Homo $ homo h1 . homo h2 
 
+decomposeHomo :: Based s b => Homo s (GrowingSet b)
+decomposeHomo = Homo $ GrowingSet . decompose
+
+composeHomo :: Based s b => Homo (GrowingSet b) s
+composeHomo = Homo $ compose . growingSet
+
 propagateHomo :: (BoundedJoinSemilattice a, BoundedJoinSemilattice b) => Homo a b -> [a] -> [b]
 propagateHomo (Homo f) = scanl (\b a -> b \/ f a) bottom
 
@@ -335,8 +341,11 @@ instance Ord a => Based (GrowingSet a) a where
     jirelement = GrowingSet . S.singleton
     decompose = growingSet
 
-propagateGrowth :: (Ord a, Ord b) => (a -> b) -> GrowingSet a -> GrowingSet b
-propagateGrowth f = GrowingSet . S.map f . growingSet
+propagateGrowth :: (Ord a, Ord b) => (a -> b) -> Homo (GrowingSet a) (GrowingSet b)
+propagateGrowth f = Homo $ GrowingSet . S.map f . growingSet
+
+propagateSetSize :: Mono (GrowingSet a) (Increasing Int)
+propagateSetSize = Mono $ Increasing . length . growingSet
 
 -- | If @a@ is Ord and we know we get fewer of them over time.
 newtype ShrinkingSet a = ShrinkingSet { shrinkingSet :: Set a }
