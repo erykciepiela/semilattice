@@ -15,9 +15,12 @@ module Semilattice (
     isDescending,
     isAscending,
     isAscendingTowards,
+    collect,
     Homo(..),
     propagateHomo,
     propagatedHomo,
+    composeHomo,
+    decomposeHomo,
     Mono(..),
     propagateMono,
     propagatedMono,
@@ -184,6 +187,9 @@ decomposeHomo = Homo $ GrowingSet . decompose
 
 composeHomo :: Based s b => Homo (GrowingSet b) s
 composeHomo = Homo $ compose . growingSet
+
+collect :: Ord a => [a] -> [GrowingSet a]
+collect = scanl (\s a -> s \/ jirelement a) bottom
 
 propagateHomo :: (BoundedJoinSemilattice a, BoundedJoinSemilattice b) => Homo a b -> [a] -> [b]
 propagateHomo (Homo f) = scanl (\b a -> b \/ f a) bottom

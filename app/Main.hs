@@ -32,19 +32,20 @@ type Frame = GrowingMap PositionInFrame (Same LPN, DT)
 type Van = GrowingMap PositionInVan (Same LPN, Frame)
 
 type Shipment = GrowingMap PositionInShipment (Same LPN, Van)
+type ShipmentB = (PositionInShipment, Either LPN (PositionInVan, Either LPN (PositionInFrame, Either LPN (PositionInDT, (SKU, (ST, Qty))))))
 
 -- join-irreducible elements
-picked :: PositionInShipment -> PositionInVan -> PositionInFrame -> PositionInDT -> SKU -> ST -> Qty -> Shipment
-picked pishipment pivan piframe pidt skuId st qty = jirelement (pishipment, Right (pivan, Right (piframe, Right (pidt, (skuId, (st, qty))))))
+picked :: PositionInShipment -> PositionInVan -> PositionInFrame -> PositionInDT -> SKU -> ST -> Qty -> ShipmentB
+picked pishipment pivan piframe pidt skuId st qty = (pishipment, Right (pivan, Right (piframe, Right (pidt, (skuId, (st, qty))))))
 
-dtManufactured :: PositionInShipment -> PositionInVan -> PositionInFrame -> LPN -> Shipment
-dtManufactured pishipment pivan piframe dtlpn = jirelement (pishipment, Right (pivan, Right (piframe, Left dtlpn)))
+dtManufactured :: PositionInShipment -> PositionInVan -> PositionInFrame -> LPN -> ShipmentB
+dtManufactured pishipment pivan piframe dtlpn = (pishipment, Right (pivan, Right (piframe, Left dtlpn)))
 
-frameManufactured :: PositionInShipment -> PositionInVan -> LPN -> Shipment
-frameManufactured pishipment pivan frameLpn = jirelement (pishipment, Right (pivan, Left frameLpn))
+frameManufactured :: PositionInShipment -> PositionInVan -> LPN -> ShipmentB
+frameManufactured pishipment pivan frameLpn = (pishipment, Right (pivan, Left frameLpn))
 
-vanManufactured :: PositionInShipment -> LPN -> Shipment
-vanManufactured pishipment vanLpn = jirelement (pishipment, Left vanLpn)
+vanManufactured :: PositionInShipment -> LPN -> ShipmentB
+vanManufactured pishipment vanLpn = (pishipment, Left vanLpn)
 
 -- homomorphisms
 shipmentVan :: PositionInShipment -> Homo Shipment Van
@@ -98,8 +99,8 @@ main = do
                 vanManufactured 0 "V1"            -- 0 has been loaded and it has LPN V1
             ]
     let expectedState = GrowingMap {growingMap = fromList [(0,(Unambiguous "V1",GrowingMap {growingMap = fromList [(0,(Unambiguous "F1",GrowingMap {growingMap = fromList [(0,(Unambiguous "DT1",GrowingMap {growingMap = fromList [(0,GrowingMap {growingMap = fromList [("apple",GrowingMap {growingMap = fromList [(0,Increasing {increasing = 3})]}),("coconut",GrowingMap {growingMap = fromList [(2,Increasing {increasing = 1}),(3,Increasing {increasing = 1})]})]}),(1,GrowingMap {growingMap = fromList [("banana",GrowingMap {growingMap = fromList [(1,Increasing {increasing = 4})]})]}),(2,GrowingMap {growingMap = fromList [("donut",GrowingMap {growingMap = fromList [(4,Increasing {increasing = 5})]})]})]})),(1,(Unambiguous "DT2",GrowingMap {growingMap = fromList [(0,GrowingMap {growingMap = fromList [("donut",GrowingMap {growingMap = fromList [(4,Increasing {increasing = 7})]})]})]}))]}))]}))]}
-    print $ all (`isEventuallyConsistent` expectedState) (L.take 100000 (messedUp events))  -- True
-    print $ (`propagatedHomo` prop) events `ascendsTowards` (GrowingSet {growingSet = S.fromList ["apple","coconut"]})
+    print $ all (`isEventuallyConsistent` expectedState) (L.take 100000 (messedUp (jirelement <$> events)))  -- True
+    print $ (`propagatedHomo` (prop . composeHomo)) (collect events) `ascendsTowards` (GrowingSet {growingSet = S.fromList ["apple","coconut"]})
     print $ decompose expectedState 
     -- print $ all (`isEventuallyConsistent` (GrowingSet {growingSet = S.fromList ["apple","coconut"]})) ((propagateHomo prop . fmap (fmap bjsconcat) <$> (L.take 100000 (messedUp events))))
 
