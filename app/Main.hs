@@ -32,19 +32,19 @@ type Frame = GrowingMap PositionInFrame (Same LPN, DT)
 type Van = GrowingMap PositionInVan (Same LPN, Frame)
 
 type Shipment = GrowingMap PositionInShipment (Same LPN, Van)
-type ShipmentB = (PositionInShipment, Either LPN (PositionInVan, Either LPN (PositionInFrame, Either LPN (PositionInDT, (SKU, (ST, Qty))))))
+type ShipmentDual = (PositionInShipment, Either LPN (PositionInVan, Either LPN (PositionInFrame, Either LPN (PositionInDT, (SKU, (ST, Qty))))))
 
 -- join-irreducible elements
-picked :: PositionInShipment -> PositionInVan -> PositionInFrame -> PositionInDT -> SKU -> ST -> Qty -> ShipmentB
+picked :: PositionInShipment -> PositionInVan -> PositionInFrame -> PositionInDT -> SKU -> ST -> Qty -> ShipmentDual
 picked pishipment pivan piframe pidt skuId st qty = (pishipment, Right (pivan, Right (piframe, Right (pidt, (skuId, (st, qty))))))
 
-dtManufactured :: PositionInShipment -> PositionInVan -> PositionInFrame -> LPN -> ShipmentB
+dtManufactured :: PositionInShipment -> PositionInVan -> PositionInFrame -> LPN -> ShipmentDual
 dtManufactured pishipment pivan piframe dtlpn = (pishipment, Right (pivan, Right (piframe, Left dtlpn)))
 
-frameManufactured :: PositionInShipment -> PositionInVan -> LPN -> ShipmentB
+frameManufactured :: PositionInShipment -> PositionInVan -> LPN -> ShipmentDual
 frameManufactured pishipment pivan frameLpn = (pishipment, Right (pivan, Left frameLpn))
 
-vanManufactured :: PositionInShipment -> LPN -> ShipmentB
+vanManufactured :: PositionInShipment -> LPN -> ShipmentDual
 vanManufactured pishipment vanLpn = (pishipment, Left vanLpn)
 
 -- homomorphisms
