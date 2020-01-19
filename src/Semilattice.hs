@@ -24,10 +24,9 @@ module Semilattice (
     Mono(..),
     propagateMono,
     propagatedMono,
-    Based(..),
+    Dual(..),
     Proc(..),
     runProc,
-    bconcat,
     -- | Primitive bjsconcat semilattices 
     Increasing(..),
     propagateIncrease,
@@ -54,7 +53,7 @@ module Semilattice (
 
 import Prelude hiding (id, (.))
 import Data.Set as S
-import Data.Semigroup
+-- import Data.Semigroup
 import qualified Data.Map as M
 import Data.List as L
 import Control.Category
@@ -163,17 +162,15 @@ isDescending [s] = True
 isDescending (s1:rest@(s2:_)) = s1 +> s2 && isDescending rest
 
 --
-class (BoundedJoinSemilattice s, Ord b) => Based s b | s -> b where
+class (BoundedJoinSemilattice s, Ord b) => Dual s b | s -> b where
     -- minimal (jirelement|compose, decompose)
-    -- join-irreducible element
-    jirelement :: b -> s
-    jirelement b = compose $ S.singleton b
+    -- compose . decompose = id
+    decompose :: s -> Set b
     compose :: Set b -> s
     compose = S.foldl' (\s b -> s \/ jirelement b) bottom 
-    decompose :: s -> Set b
-
-bconcat :: (BoundedJoinSemilattice s, Based s b) => [b] -> s
-bconcat bs = bjsconcat $ jirelement <$> bs
+    -- join-irreducible element
+    jirelement :: b -> s
+    jirelement = compose . S.singleton
 
 --
 newtype Homo a b = Homo { homo :: a -> b }
@@ -182,10 +179,10 @@ instance Category Homo where
     id = Homo id
     h1 . h2 = Homo $ homo h1 . homo h2 
 
-decomposeHomo :: Based s b => Homo s (GrowingSet b)
+decomposeHomo :: Dual s b => Homo s (GrowingSet b)
 decomposeHomo = Homo $ GrowingSet . decompose
 
-composeHomo :: Based s b => Homo (GrowingSet b) s
+composeHomo :: Dual s b => Homo (GrowingSet b) s
 composeHomo = Homo $ compose . growingSet
 
 collect :: Ord a => [a] -> [GrowingSet a]
@@ -243,7 +240,7 @@ instance JoinSemilattice () where
 instance BoundedJoinSemilattice () where
     bottom = mempty
 
-instance Based () () where
+instance Dual () () where
     jirelement () = ()
     decompose () = S.singleton ()
 
@@ -257,7 +254,7 @@ instance JoinSemilattice (Proxy a) where
 instance BoundedJoinSemilattice (Proxy a) where
     bottom = mempty
 
-instance Based (Proxy a) () where
+instance Dual (Proxy a) () where
     jirelement () = Proxy
     decompose Proxy = S.singleton ()
 
@@ -276,7 +273,7 @@ instance Ord a => JoinSemilattice (Increasing a) where
 instance (Ord a, Bounded a) => BoundedJoinSemilattice (Increasing a) where
     bottom = Increasing minBound
 
-instance (Ord a, Bounded a) => Based (Increasing a) a where
+instance (Ord a, Bounded a) => Dual (Increasing a) a where
     jirelement = Increasing
     decompose = S.singleton . increasing
 
@@ -313,7 +310,7 @@ instance Ord a => JoinSemilattice (Decreasing a) where
 instance (Ord a, Bounded a) => BoundedJoinSemilattice (Decreasing a) where
     bottom = Decreasing maxBound
 
-instance (Ord a, Bounded a) => Based (Decreasing a) a where
+instance (Ord a, Bounded a) => Dual (Decreasing a) a where
     jirelement = Decreasing
     decompose = S.singleton . decreasing
 
@@ -343,7 +340,7 @@ instance Ord a => JoinSemilattice (GrowingSet a) where
 instance Ord a => BoundedJoinSemilattice (GrowingSet a) where
     bottom = GrowingSet $ mempty
 
-instance Ord a => Based (GrowingSet a) a where
+instance Ord a => Dual (GrowingSet a) a where
     jirelement = GrowingSet . S.singleton
     decompose = growingSet
 
@@ -368,7 +365,7 @@ instance Ord a => JoinSemilattice (ShrinkingSet a) where
 instance (Ord a, Enum a, Bounded a) => BoundedJoinSemilattice (ShrinkingSet a) where
     bottom = ShrinkingSet $ S.fromList $ enumFromTo minBound maxBound
 
-instance (Ord a, Enum a, Bounded a) => Based (ShrinkingSet a) a where
+instance (Ord a, Enum a, Bounded a) => Dual (ShrinkingSet a) a where
     jirelement a = ShrinkingSet $ S.delete a (shrinkingSet bottom)
     decompose = shrinkingSet -- ?
 
@@ -403,7 +400,7 @@ instance Ord a => JoinSemilattice (Same a) where
 instance Ord a => BoundedJoinSemilattice (Same a) where
     bottom = Unknown
 
-instance Ord a => Based (Same a) a where
+instance Ord a => Dual (Same a) a where
     jirelement = Unambiguous
     decompose Unknown = mempty
     decompose (Unambiguous a) = S.singleton a
@@ -427,7 +424,7 @@ instance JoinSemilattice a => JoinSemilattice (Identity a) where
 instance BoundedJoinSemilattice a => BoundedJoinSemilattice (Identity a) where
     bottom = Identity bottom
 
-instance Based a b => Based (Identity a) b where
+instance Dual a b => Dual (Identity a) b where
     jirelement = Identity . jirelement
     decompose (Identity a) = decompose a
 
@@ -446,7 +443,7 @@ instance JoinSemilattice a => JoinSemilattice (Maybe a) where
 instance JoinSemilattice a => BoundedJoinSemilattice (Maybe a) where
     bottom = Nothing
 
-instance Based a b => Based (Maybe a) b where
+instance Dual a b => Dual (Maybe a) b where
     jirelement = Just . jirelement
     decompose (Just a) = decompose a
 
@@ -475,7 +472,7 @@ instance (Ord k, JoinSemilattice v) => JoinSemilattice (GrowingMap k v) where
 instance (Ord k, BoundedJoinSemilattice v) => BoundedJoinSemilattice (GrowingMap k v) where
     bottom = GrowingMap mempty
 
-instance (Ord k, Based v b) => Based (GrowingMap k v) (k, b) where
+instance (Ord k, Dual v b) => Dual (GrowingMap k v) (k, b) where
     jirelement (k, b) = GrowingMap $ M.singleton k $ jirelement b
     decompose (GrowingMap m) = S.fromList (M.toList m >>= (\(k, v) -> (k,) <$> S.toList (decompose v)))
 
@@ -509,7 +506,7 @@ instance JoinSemilattice a => JoinSemilattice (GrowingList a) where
 instance BoundedJoinSemilattice a => BoundedJoinSemilattice (GrowingList a) where
     bottom = GrowingList []
 
-instance Based a b => Based (GrowingList a) (Int, b) where
+instance Dual a b => Dual (GrowingList a) (Int, b) where
     jirelement (n, b) = GrowingList $ replicate n bottom <> [jirelement b]
     decompose (GrowingList l) = S.fromList (zip [0..] l >>= (\(i, e) -> (i,) <$> S.toList (decompose e)))
 
@@ -538,7 +535,7 @@ propagateSnd = Homo snd
 instance (BoundedJoinSemilattice a, BoundedJoinSemilattice b) => BoundedJoinSemilattice (a, b) where
     bottom = (bottom, bottom)
 
-instance (Based a b, Based c d) => Based (a, c) (Either b d) where
+instance (Dual a b, Dual c d) => Dual (a, c) (Either b d) where
     jirelement (Left b) = (jirelement b, bottom) 
     jirelement (Right d) = (bottom, jirelement d) 
     decompose (a, c) = S.fromList (Left <$> S.toList (decompose a)) `S.union` S.fromList (Right <$> S.toList (decompose c))
@@ -550,7 +547,7 @@ instance (Based a b, Based c d) => Based (a, c) (Either b d) where
 -- instance (BoundedJoinSemilattice a, BoundedJoinSemilattice b, BoundedJoinSemilattice c) => BoundedJoinSemilattice (a, b, c) where
 --     bottom = (bottom, bottom, bottom)
 
--- instance (Based a b, Based c d, Based e f) => Based (a, c, e) (b, d, f) where
+-- instance (Dual a b, Dual c d, Dual e f) => Dual (a, c, e) (b, d, f) where
 --     jirelement (b, d, f) = (jirelement b, jirelement d, jirelement f) 
 
 --
@@ -560,7 +557,7 @@ instance (Based a b, Based c d) => Based (a, c) (Either b d) where
 -- instance (BoundedJoinSemilattice a, BoundedJoinSemilattice b, BoundedJoinSemilattice c, BoundedJoinSemilattice d) => BoundedJoinSemilattice (a, b, c, d) where
 --     bottom = (bottom, bottom, bottom, bottom)
 
--- instance (Based a b, Based c d, Based e f, Based g h) => Based (a, c, e, g) (b, d, f, h) where
+-- instance (Dual a b, Dual c d, Dual e f, Dual g h) => Dual (a, c, e, g) (b, d, f, h) where
 --     jirelement (b, d, f, h) = (jirelement b, jirelement d, jirelement f, jirelement h) 
 
 -- and so on...
@@ -581,7 +578,7 @@ instance (JoinSemilattice a, JoinSemilattice b) => JoinSemilattice (Either a b) 
 instance (BoundedJoinSemilattice a, JoinSemilattice b) => BoundedJoinSemilattice (Either a b) where
     bottom = Left bottom
 
-instance (Based a b, Based c d) => Based (Either a c) (Either b d) where
+instance (Dual a b, Dual c d) => Dual (Either a c) (Either b d) where
     jirelement (Left b) = Left $ jirelement b
     jirelement (Right d) = Right $ jirelement d
     decompose (Left a) = S.fromList (Left <$> S.toList (decompose a))
