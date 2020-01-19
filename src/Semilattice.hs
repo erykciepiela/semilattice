@@ -150,23 +150,6 @@ isDescending [s] = True
 isDescending (s1:rest@(s2:_)) = s1 +> s2 && isDescending rest
 
 --
-class (BoundedSemilattice s, Ord b) => Dual s b | s -> b where
-    -- minimal (jirelement|compose, decompose)
-    -- compose . decompose = id
-    decompose :: s -> Set b
-    compose :: Set b -> s
-    compose = S.foldl' (\s b -> s \/ jirelement b) bottom 
-    -- join-irreducible element
-    jirelement :: b -> s
-    jirelement = compose . S.singleton
-
-dmapToLattice :: (Dual a a', Dual b b') => Homo (Set a') (Set b') -> Homo a b
-dmapToLattice (Homo f) = Homo $ \a -> compose $ f $ decompose a 
-
-dmapToSets :: (Dual a a', Dual b b') => Homo a b -> Homo (Set a') (Set b')
-dmapToSets (Homo f) = Homo $ \a's -> decompose $ f $ compose a's 
-
---
 newtype Homo a b = Homo { homo :: a -> b }
 
 instance Category Homo where
@@ -236,9 +219,6 @@ instance Semilattice () where
 instance BoundedSemilattice () where
     bottom = mempty
 
-instance Dual () () where
-    jirelement () = ()
-    decompose () = S.singleton ()
 
 --
 instance PartialOrd (Proxy a) where
@@ -250,10 +230,6 @@ instance Semilattice (Proxy a) where
 
 instance BoundedSemilattice (Proxy a) where
     bottom = mempty
-
-instance Dual (Proxy a) () where
-    jirelement () = Proxy
-    decompose Proxy = S.singleton ()
 
 --
 newtype Increasing a = Increasing { increasing :: a }
@@ -270,10 +246,6 @@ instance Ord a => Semilattice (Increasing a) where
 
 instance (Ord a, Bounded a) => BoundedSemilattice (Increasing a) where
     bottom = Increasing minBound
-
-instance (Ord a, Bounded a) => Dual (Increasing a) a where
-    jirelement = Increasing
-    decompose = S.singleton . increasing
 
 propagateIncrease :: (a -> b) -> Increasing a -> Increasing b
 propagateIncrease f (Increasing a) = Increasing (f a) -- f must be monotone!
@@ -309,10 +281,6 @@ instance Ord a => Semilattice (Decreasing a) where
 instance (Ord a, Bounded a) => BoundedSemilattice (Decreasing a) where
     bottom = Decreasing maxBound
 
-instance (Ord a, Bounded a) => Dual (Decreasing a) a where
-    jirelement = Decreasing
-    decompose = S.singleton . decreasing
-
 propagateDecrease :: (a -> b) -> Decreasing a -> Decreasing b
 propagateDecrease f (Decreasing a) = Decreasing (f a) -- f must be monotone!
 -- if f is counter-monotone (e.g. inverse) then propagateDecrease is not homomorphic
@@ -335,9 +303,6 @@ instance Ord a => Semilattice (Set a) where
 instance Ord a => BoundedSemilattice (Set a) where
     bottom = mempty
 
-instance Ord a => Dual (Set a) a where
-    compose = id
-    decompose = id
 
 -- propagateGrowth :: (Ord a, Ord b) => (a -> b) -> Homo (GrowingSet a) (GrowingSet b)
 -- propagateGrowth f = Homo $ GrowingSet . S.map f . growingSet
@@ -373,13 +338,6 @@ instance Ord a => Semilattice (Same a) where
 
 instance Ord a => BoundedSemilattice (Same a) where
     bottom = Unknown
-
-instance Ord a => Dual (Same a) a where
-    jirelement = Unambiguous
-    decompose Unknown = mempty
-    decompose (Unambiguous a) = S.singleton a
-    decompose (Ambiguous as) = as
-
 
 propagateSame :: (Ord a, Ord b) => (a -> b) -> Same a -> Same b
 propagateSame f Unknown = Unknown
@@ -421,10 +379,6 @@ instance Semilattice a => Semilattice (Maybe a) where
 instance Semilattice a => BoundedSemilattice (Maybe a) where
     bottom = Nothing
 
-instance Dual a b => Dual (Maybe a) b where
-    jirelement = Just . jirelement
-    decompose (Just a) = decompose a
-
 propagateMaybe :: BoundedSemilattice a => Maybe a -> a -- homomorphism
 propagateMaybe Nothing = bottom
 propagateMaybe (Just a) = a
@@ -445,10 +399,6 @@ instance (Ord k, Semilattice v) => Semilattice (M.Map k v) where
 
 instance (Ord k, BoundedSemilattice v) => BoundedSemilattice (M.Map k v) where
     bottom = mempty
-
-instance (Ord k, Dual v b) => Dual (M.Map k v) (k, b) where
-    jirelement (k, b) = M.singleton k $ jirelement b
-    decompose m = S.fromList (M.toList m >>= (\(k, v) -> (k,) <$> S.toList (decompose v)))
 
 propagateMap :: (Ord k, BoundedSemilattice s, BoundedSemilattice s') => Homo s s' -> Homo (M.Map k s) (M.Map k s')
 propagateMap h = Homo $ fmap (homo h)
@@ -476,10 +426,6 @@ instance Semilattice a => Semilattice [a] where
 instance BoundedSemilattice a => BoundedSemilattice [a] where
     bottom = mempty
 
-instance Dual a b => Dual [a] (Int, b) where
-    jirelement (n, b) = replicate n bottom <> [jirelement b]
-    decompose l = S.fromList (zip [0..] l >>= (\(i, e) -> (i,) <$> S.toList (decompose e)))
-
 propagateListLength :: BoundedSemilattice a => Homo [a] (Increasing Int)
 propagateListLength = Homo $ Increasing . length
 
@@ -505,11 +451,6 @@ propagateSnd = Homo snd
 
 instance (BoundedSemilattice a, BoundedSemilattice b) => BoundedSemilattice (a, b) where
     bottom = (bottom, bottom)
-
-instance (Dual a b, Dual c d) => Dual (a, c) (Either b d) where
-    jirelement (Left b) = (jirelement b, bottom) 
-    jirelement (Right d) = (bottom, jirelement d) 
-    decompose (a, c) = S.fromList (Left <$> S.toList (decompose a)) `S.union` S.fromList (Right <$> S.toList (decompose c))
 
 --
 -- instance (Semilattice a, Semilattice b, Semilattice c) => Semilattice (a, b, c) where
@@ -553,11 +494,6 @@ instance (Semilattice a, Semilattice b) => Semilattice (Either a b) where
 instance (BoundedSemilattice a, Semilattice b) => BoundedSemilattice (Either a b) where
     bottom = Left bottom
 
-instance (Dual a b, Dual c d) => Dual (Either a c) (Either b d) where
-    jirelement (Left b) = Left $ jirelement b
-    jirelement (Right d) = Right $ jirelement d
-    decompose (Left a) = S.fromList (Left <$> S.toList (decompose a))
-    decompose (Right c) = S.fromList (Right <$> S.toList (decompose c))
 
 -- | More on homomorphisms
 -- @f@ is homomorphisms if and only if @f (x \/ y) = f x \/ f y@
@@ -571,19 +507,70 @@ instance (Dual a b, Dual c d) => Dual (Either a c) (Either b d) where
 -- f :: a -> b
 -- a -> (b -> b)
 
---
+-- | Dual
+class (BoundedSemilattice s, Ord b) => Dual s b | s -> b where
+    -- minimal (jirelement|compose, decompose)
+    -- compose . decompose = id
+    decompose :: s -> Set b
+    compose :: Set b -> s
+    compose = S.foldl' (\s b -> s \/ jirelement b) bottom 
+    -- join-irreducible element
+    jirelement :: b -> s
+    jirelement = compose . S.singleton
 
--- data E s where
---     E :: (Ord s, BoundedSemilattice s) => GrowingSet s -> E s
+dmapToLattice :: (Dual a a', Dual b b') => Homo (Set a') (Set b') -> Homo a b
+dmapToLattice (Homo f) = Homo $ \a -> compose $ f $ decompose a 
 
--- pHomo :: (BoundedSemilattice a) => (a -> b) -> GrowingSet a -> b
--- pHomo f g = f $ join g
+dmapToSets :: (Dual a a', Dual b b') => Homo a b -> Homo (Set a') (Set b')
+dmapToSets (Homo f) = Homo $ \a's -> decompose $ f $ compose a's 
 
--- pMono :: (BoundedSemilattice a, BoundedSemilattice b, Ord b) => (a -> b) -> GrowingSet a -> b
--- pMono f g = bjsconcat $ S.map f (Semilattice.all g)
+instance Dual () () where
+    jirelement () = ()
+    decompose () = S.singleton ()
 
--- join :: (BoundedSemilattice s) => GrowingSet s -> s
--- join (GrowingSet ss) = bjsconcat ss
+instance Dual (Proxy a) () where
+    jirelement () = Proxy
+    decompose Proxy = S.singleton ()
 
--- all :: (BoundedSemilattice s) => GrowingSet s -> S.Set s
--- all (GrowingSet ss) = ss
+instance (Ord a, Bounded a) => Dual (Decreasing a) a where
+    jirelement = Decreasing
+    decompose = S.singleton . decreasing
+
+instance (Ord a, Bounded a) => Dual (Increasing a) a where
+    jirelement = Increasing
+    decompose = S.singleton . increasing
+
+instance Ord a => Dual (Same a) a where
+    jirelement = Unambiguous
+    decompose Unknown = mempty
+    decompose (Unambiguous a) = S.singleton a
+    decompose (Ambiguous as) = as
+
+instance Ord a => Dual (Set a) a where
+    compose = id
+    decompose = id
+
+-- higher-kinded duals
+instance Dual a b => Dual (Maybe a) b where
+    jirelement = Just . jirelement
+    decompose (Just a) = decompose a
+
+instance (Dual a b, Dual c d) => Dual (Either a c) (Either b d) where
+    jirelement (Left b) = Left $ jirelement b
+    jirelement (Right d) = Right $ jirelement d
+    decompose (Left a) = S.fromList (Left <$> S.toList (decompose a))
+    decompose (Right c) = S.fromList (Right <$> S.toList (decompose c))
+
+instance (Dual a b, Dual c d) => Dual (a, c) (Either b d) where
+    jirelement (Left b) = (jirelement b, bottom) 
+    jirelement (Right d) = (bottom, jirelement d) 
+    decompose (a, c) = S.fromList (Left <$> S.toList (decompose a)) `S.union` S.fromList (Right <$> S.toList (decompose c))
+
+instance Dual a b => Dual [a] (Int, b) where
+    jirelement (n, b) = replicate n bottom <> [jirelement b]
+    decompose l = S.fromList (zip [0..] l >>= (\(i, e) -> (i,) <$> S.toList (decompose e)))
+
+instance (Ord k, Dual v b) => Dual (M.Map k v) (k, b) where
+    jirelement (k, b) = M.singleton k $ jirelement b
+    decompose m = S.fromList (M.toList m >>= (\(k, v) -> (k,) <$> S.toList (decompose v)))
+
