@@ -554,6 +554,7 @@ instance Ord a => Dual (Set a) a where
 instance Dual a b => Dual (Maybe a) b where
     jirelement = Just . jirelement
     decompose (Just a) = decompose a
+    decompose Nothing = bottom
 
 instance (Dual a b, Dual c d) => Dual (Either a c) (Either b d) where
     jirelement (Left b) = Left $ jirelement b
