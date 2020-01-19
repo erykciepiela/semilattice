@@ -25,6 +25,8 @@ module Semilattice (
     propagateMono,
     propagatedMono,
     Dual(..),
+    dmapToLattice,
+    dmapToSets,
     Proc(..),
     runProc,
     -- | Primitive bjsconcat semilattices 
@@ -172,6 +174,12 @@ class (BoundedJoinSemilattice s, Ord b) => Dual s b | s -> b where
     jirelement :: b -> s
     jirelement = compose . S.singleton
 
+dmapToLattice :: (Dual a a', Dual b b') => Homo (Set a') (Set b') -> Homo a b
+dmapToLattice (Homo f) = Homo $ \a -> compose $ f $ decompose a 
+
+dmapToSets :: (Dual a a', Dual b b') => Homo a b -> Homo (Set a') (Set b')
+dmapToSets (Homo f) = Homo $ \a's -> decompose $ f $ compose a's 
+
 --
 newtype Homo a b = Homo { homo :: a -> b }
 
@@ -217,11 +225,12 @@ runProc (Proc (Homo h) m) as = m <$> bjsscan (h <$> as)
 instance Functor (Proc a) where
     fmap f (Proc h g) = Proc h (f . g)
 
-foo :: Homo a ()
-foo = Homo (const ())
 
 instance Applicative (Proc a) where
     pure b = Proc foo (const b)
+        where
+            foo :: Homo a ()
+            foo = Homo (const ())
     (Proc fh fm) <*> (Proc ah am) = Proc (Homo $ \i -> (homo fh i, homo ah i)) (\(fs, as) -> fm fs (am as))
 
 procid :: BoundedJoinSemilattice a => Proc a a
