@@ -63,7 +63,7 @@ shipmentDTLPN piShipment piVan piFrame = propagateFst . propagateMapEntry piFram
 shipmentBag :: PositionInShipment -> PositionInVan -> PositionInFrame -> PositionInDT -> Homo Shipment Bag
 shipmentBag piShipment piVan piFrame piDT = propagateMapEntry piDT . shipmentDT piShipment piVan piFrame
 
-shipmentPositionsDone :: Homo Shipment (GrowingSet PositionInShipment)
+shipmentPositionsDone :: Homo Shipment (S.Set PositionInShipment)
 shipmentPositionsDone = propagateMapKeys 
 
 -- | Messes up original list by doubling each element, permuting elements and grouping subsequences of elements.
@@ -100,10 +100,10 @@ main = do
             ]
     let expectedState = GrowingMap {growingMap = fromList [(0,(Unambiguous "V1",GrowingMap {growingMap = fromList [(0,(Unambiguous "F1",GrowingMap {growingMap = fromList [(0,(Unambiguous "DT1",GrowingMap {growingMap = fromList [(0,GrowingMap {growingMap = fromList [("apple",GrowingMap {growingMap = fromList [(0,Increasing {increasing = 3})]}),("coconut",GrowingMap {growingMap = fromList [(2,Increasing {increasing = 1}),(3,Increasing {increasing = 1})]})]}),(1,GrowingMap {growingMap = fromList [("banana",GrowingMap {growingMap = fromList [(1,Increasing {increasing = 4})]})]}),(2,GrowingMap {growingMap = fromList [("donut",GrowingMap {growingMap = fromList [(4,Increasing {increasing = 5})]})]})]})),(1,(Unambiguous "DT2",GrowingMap {growingMap = fromList [(0,GrowingMap {growingMap = fromList [("donut",GrowingMap {growingMap = fromList [(4,Increasing {increasing = 7})]})]})]}))]}))]}))]}
     print $ all (\es -> (fmap jirelement <$> es) `isEventuallyConsistent` expectedState) (L.take 100000 (messedUp events))  -- True
-    print $ (`propagatedHomo` (prop . composeHomo)) (collect events) `ascendsTowards` (GrowingSet {growingSet = S.fromList ["apple","coconut"]})
+    print $ (`propagatedHomo` (prop . composeHomo)) (collect events) `ascendsTowards` S.fromList ["apple","coconut"]
     print $ decompose expectedState 
-    -- print $ all (`isEventuallyConsistent` (GrowingSet {growingSet = S.fromList ["apple","coconut"]})) ((propagateHomo prop . fmap (fmap bjsconcat) <$> (L.take 100000 (messedUp events))))
+    -- print $ all (`isEventuallyConsistent` (S.Set {growingSet = S.fromList ["apple","coconut"]})) ((propagateHomo prop . fmap (fmap bjsconcat) <$> (L.take 100000 (messedUp events))))
 
 -- what SKUs are in given bag
-prop :: Homo Shipment (GrowingSet SKU)
+prop :: Homo Shipment (S.Set SKU)
 prop = propagateMapKeys . propagateMapEntry 0 . propagateSnd . propagateMapEntry 0 . propagateSnd . propagateMapEntry 0 . propagateSnd . propagateMapEntry 0

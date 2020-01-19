@@ -1,6 +1,6 @@
 module Semilattice (
-    JoinSemilattice(..),
-    BoundedJoinSemilattice(..),
+    Semilattice(..),
+    BoundedSemilattice(..),
     (+>),
     (<+),
     (<<+),
@@ -37,10 +37,6 @@ module Semilattice (
     propagateDecrease,
     Same(..),
     propagateSame,
-    GrowingSet(..),
-    propagateGrowth,
-    ShrinkingSet(..),
-    propagateShrink,
     -- | Higher-kinded bjsconcat semilattices
     GrowingMap(..),
     propagateMap,
@@ -83,15 +79,13 @@ class Eq p => PartialOrd p where
     (<<+) :: p -> p -> Bool
     (<<+) = flip (+>>)
 
-class PartialOrd s => JoinSemilattice s where
+class PartialOrd s => Semilattice s where
     -- a \/ (b  \/ c) = (a \/ b) \/ c - associativity
     -- a \/ b = b \/ a - commutativity
     -- a \/ a = a idempotence
     -- a \/ b +> a
     -- a \/ b +> b
     (\/) :: s -> s -> s
-
-class PartialOrd s => MeetSemilattice s where
     -- a /\ (b  /\ c) = (a /\ b) /\ c - associativity
     -- a /\ b = b /\ a - commutativity
     -- a /\ a = a idempotence
@@ -99,41 +93,35 @@ class PartialOrd s => MeetSemilattice s where
     -- a /\ b <+ b
     (/\) :: s -> s -> s
 
-class (JoinSemilattice s, MeetSemilattice s) => Semilattice s
-
-class JoinSemilattice s => BoundedJoinSemilattice s where
+class Semilattice s => BoundedSemilattice s where
     -- a \/ bottom = a = bottom \/ a 
     bottom :: s
-
-class MeetSemilattice s => BoundedMeetSemilattice s where
     -- a /\ top = top = top /\ a 
-    top :: s
+    -- top :: s
 
-class (BoundedJoinSemilattice s, BoundedMeetSemilattice s) => BoundedSemilattice s
-
-bjsconcatS :: (Ord s, BoundedJoinSemilattice s) => S.Set s -> s
+bjsconcatS :: (Ord s, BoundedSemilattice s) => S.Set s -> s
 bjsconcatS = S.foldr (\/) bottom
 
-bjsconcat :: (Foldable f, BoundedJoinSemilattice s) => f s -> s
+bjsconcat :: (Foldable f, BoundedSemilattice s) => f s -> s
 bjsconcat = Prelude.foldr (\/) bottom
 -- if f s is bounded semilattice then it's a propagator
 
-bjsscan :: (BoundedJoinSemilattice s) => [s] -> [s]
+bjsscan :: (BoundedSemilattice s) => [s] -> [s]
 bjsscan = scanl' (\/) bottom
 
-bjsconcat'' :: (Foldable f, BoundedJoinSemilattice s, BoundedJoinSemilattice (f s)) => f s -> s
+bjsconcat'' :: (Foldable f, BoundedSemilattice s, BoundedSemilattice (f s)) => f s -> s
 bjsconcat'' = Prelude.foldr (\/) bottom
 
 
-ascends :: (Eq s, BoundedJoinSemilattice s) => [s] -> Bool
+ascends :: (Eq s, BoundedSemilattice s) => [s] -> Bool
 ascends ss = let ss' = bjsscan ss in isAscending ss'
     where
-        isAscending :: (Eq s, BoundedJoinSemilattice s) => [s] -> Bool
+        isAscending :: (Eq s, BoundedSemilattice s) => [s] -> Bool
         isAscending [] = True
         isAscending [s] = True
         isAscending (s1:rest@(s2:_)) = s1 <+ s2 && isAscending rest
 
-ascendsTowards :: (Eq s, BoundedJoinSemilattice s) => [s] -> s -> Bool
+ascendsTowards :: (Eq s, BoundedSemilattice s) => [s] -> s -> Bool
 ascendsTowards [] final = final == bottom
 ascendsTowards ss final = let ss' = bjsscan ss in isAscending ss' && L.all (<+ final) ss'
 
@@ -145,26 +133,26 @@ isAscending (s1:rest@(s2:_)) = s1 <+ s2 && isAscending rest
 isAscendingTowards :: (Eq s, PartialOrd s) => [s] -> s -> Bool
 isAscendingTowards ss s = isAscending ss && last ss == s -- assuming ss not empty
 
-ascendsTo :: (Eq s, BoundedJoinSemilattice s) => [s] -> s -> Bool
+ascendsTo :: (Eq s, BoundedSemilattice s) => [s] -> s -> Bool
 ascendsTo [] final = final == bottom
 ascendsTo ss final = let ss' = bjsscan ss in isAscending ss' && L.all (<+ final) ss' && last ss' == final
     where
-        isAscending :: (Eq s, BoundedJoinSemilattice s) => [s] -> Bool
+        isAscending :: (Eq s, BoundedSemilattice s) => [s] -> Bool
         isAscending [] = True
         isAscending [s] = True
         isAscending (s1:rest@(s2:_)) = s1 <+ s2 && isAscending rest
 
-isEventuallyConsistent :: (Eq s, BoundedJoinSemilattice s) => [[s]] -> s -> Bool
+isEventuallyConsistent :: (Eq s, BoundedSemilattice s) => [[s]] -> s -> Bool
 isEventuallyConsistent [] final = final == bottom
 isEventuallyConsistent ss final = ascendsTo (bjsconcat <$> ss) final
 
-isDescending :: (Eq s, BoundedJoinSemilattice s) => [s] -> Bool
+isDescending :: (Eq s, BoundedSemilattice s) => [s] -> Bool
 isDescending [] = True
 isDescending [s] = True
 isDescending (s1:rest@(s2:_)) = s1 +> s2 && isDescending rest
 
 --
-class (BoundedJoinSemilattice s, Ord b) => Dual s b | s -> b where
+class (BoundedSemilattice s, Ord b) => Dual s b | s -> b where
     -- minimal (jirelement|compose, decompose)
     -- compose . decompose = id
     decompose :: s -> Set b
@@ -187,22 +175,22 @@ instance Category Homo where
     id = Homo id
     h1 . h2 = Homo $ homo h1 . homo h2 
 
-decomposeHomo :: Dual s b => Homo s (GrowingSet b)
-decomposeHomo = Homo $ GrowingSet . decompose
+decomposeHomo :: Dual s b => Homo s (Set b)
+decomposeHomo = Homo $ decompose
 
-composeHomo :: Dual s b => Homo (GrowingSet b) s
-composeHomo = Homo $ compose . growingSet
+composeHomo :: Dual s b => Homo (Set b) s
+composeHomo = Homo $ compose
 
-collect :: Ord a => [a] -> [GrowingSet a]
+collect :: Ord a => [a] -> [Set a]
 collect = scanl (\s a -> s \/ jirelement a) bottom
 
-propagateHomo :: (BoundedJoinSemilattice a, BoundedJoinSemilattice b) => Homo a b -> [a] -> [b]
+propagateHomo :: (BoundedSemilattice a, BoundedSemilattice b) => Homo a b -> [a] -> [b]
 propagateHomo (Homo f) = scanl (\b a -> b \/ f a) bottom
 
-propagatedHomo :: (BoundedJoinSemilattice a, BoundedJoinSemilattice b) => [a] -> Homo a b -> [b]
+propagatedHomo :: (BoundedSemilattice a, BoundedSemilattice b) => [a] -> Homo a b -> [b]
 propagatedHomo = flip propagateHomo
 
--- propagatedHomo' :: (BoundedJoinSemilattice a, BoundedJoinSemilattice b) => [[a]] -> Homo a b -> [b]
+-- propagatedHomo' :: (BoundedSemilattice a, BoundedSemilattice b) => [[a]] -> Homo a b -> [b]
 -- propagatedHomo' ass (Homo f) = scanl (\b a -> b \/ f a) bottom
 --
 newtype Mono a b = Mono { mono :: a -> b }
@@ -211,13 +199,13 @@ instance Category Mono where
     id = Mono id
     m1 . m2 = Mono $ mono m1 . mono m2 
 
-propagateMono :: (BoundedJoinSemilattice a, PartialOrd b) => Mono a b -> [a] -> [b]
+propagateMono :: (BoundedSemilattice a, PartialOrd b) => Mono a b -> [a] -> [b]
 propagateMono (Mono f) as = f <$> scanl (\/) bottom as 
 
-propagatedMono :: (BoundedJoinSemilattice a, PartialOrd b) => [a] -> Mono a b -> [b]
+propagatedMono :: (BoundedSemilattice a, PartialOrd b) => [a] -> Mono a b -> [b]
 propagatedMono = flip propagateMono
 
-data Proc a b = forall s. BoundedJoinSemilattice s => Proc { phomo :: Homo a s, pf :: s -> b }
+data Proc a b = forall s. BoundedSemilattice s => Proc { phomo :: Homo a s, pf :: s -> b }
 
 runProc :: Proc a b -> [a] -> [b]
 runProc (Proc (Homo h) m) as = m <$> bjsscan (h <$> as)
@@ -233,7 +221,7 @@ instance Applicative (Proc a) where
             foo = Homo (const ())
     (Proc fh fm) <*> (Proc ah am) = Proc (Homo $ \i -> (homo fh i, homo ah i)) (\(fs, as) -> fm fs (am as))
 
-procid :: BoundedJoinSemilattice a => Proc a a
+procid :: BoundedSemilattice a => Proc a a
 procid = Proc id id
 
 procbimap :: Homo a' a -> (b -> b') -> Proc a b -> Proc a' b'
@@ -243,10 +231,11 @@ procbimap h m (Proc ph pm) = Proc (ph . h) (m . pm)
 instance PartialOrd () where
     () +> () = True
 
-instance JoinSemilattice () where
-    (\/) = (<>)
+instance Semilattice () where
+    _ \/ _ = ()
+    _ /\ _ = ()
 
-instance BoundedJoinSemilattice () where
+instance BoundedSemilattice () where
     bottom = mempty
 
 instance Dual () () where
@@ -257,10 +246,11 @@ instance Dual () () where
 instance PartialOrd (Proxy a) where
     Proxy +> Proxy = True
 
-instance JoinSemilattice (Proxy a) where
-    (\/) = (<>)
+instance Semilattice (Proxy a) where
+    _ \/ _ = Proxy
+    _ /\ _ = Proxy
 
-instance BoundedJoinSemilattice (Proxy a) where
+instance BoundedSemilattice (Proxy a) where
     bottom = mempty
 
 instance Dual (Proxy a) () where
@@ -276,10 +266,11 @@ deriving instance Eq a => Eq (Increasing a)
 instance Ord a => PartialOrd (Increasing a) where
     (Increasing a) +> (Increasing b) = a >= b
     
-instance Ord a => JoinSemilattice (Increasing a) where
+instance Ord a => Semilattice (Increasing a) where
     (Increasing a) \/ (Increasing b) = Increasing (max a b)
+    (Increasing a) /\ (Increasing b) = Increasing (min a b)
 
-instance (Ord a, Bounded a) => BoundedJoinSemilattice (Increasing a) where
+instance (Ord a, Bounded a) => BoundedSemilattice (Increasing a) where
     bottom = Increasing minBound
 
 instance (Ord a, Bounded a) => Dual (Increasing a) a where
@@ -313,10 +304,11 @@ deriving instance Eq a => Eq (Decreasing a)
 instance Ord a => PartialOrd (Decreasing a) where
     Decreasing a +> Decreasing b = a <= b
 
-instance Ord a => JoinSemilattice (Decreasing a) where
+instance Ord a => Semilattice (Decreasing a) where
     (Decreasing a) \/ (Decreasing b) = Decreasing (min a b)
+    (Decreasing a) /\ (Decreasing b) = Decreasing (max a b)
 
-instance (Ord a, Bounded a) => BoundedJoinSemilattice (Decreasing a) where
+instance (Ord a, Bounded a) => BoundedSemilattice (Decreasing a) where
     bottom = Decreasing maxBound
 
 instance (Ord a, Bounded a) => Dual (Decreasing a) a where
@@ -334,52 +326,26 @@ propagateDecrease f (Decreasing a) = Decreasing (f a) -- f must be monotone!
 -- f (Dec 3) = (Dec 4) \/ (Dec 6)
 -- Dec 4 = Dec 4
 
--- | If @a@ is Ord and we know we get more of them over time.
-newtype GrowingSet a = GrowingSet { growingSet :: Set a }
+-- | If @a@ is Ord and we know we get more/less of them over time.
+instance Ord a => PartialOrd (Set a) where
+    (+>) = (>=)
 
-deriving instance Show a => Show (GrowingSet a)
-deriving instance Eq a => Eq (GrowingSet a)
+instance Ord a => Semilattice (Set a) where
+    (\/) = S.union
+    (/\) = S.intersection
 
-instance Ord a => PartialOrd (GrowingSet a) where
-    GrowingSet s1 +> GrowingSet s2 = s1 >= s2
+instance Ord a => BoundedSemilattice (Set a) where
+    bottom = mempty
 
-instance Ord a => JoinSemilattice (GrowingSet a) where
-    GrowingSet s1 \/ GrowingSet s2 = GrowingSet $ S.union s1 s2
+instance Ord a => Dual (Set a) a where
+    compose = id
+    decompose = id
 
-instance Ord a => BoundedJoinSemilattice (GrowingSet a) where
-    bottom = GrowingSet $ mempty
+-- propagateGrowth :: (Ord a, Ord b) => (a -> b) -> Homo (GrowingSet a) (GrowingSet b)
+-- propagateGrowth f = Homo $ GrowingSet . S.map f . growingSet
 
-instance Ord a => Dual (GrowingSet a) a where
-    jirelement = GrowingSet . S.singleton
-    decompose = growingSet
-
-propagateGrowth :: (Ord a, Ord b) => (a -> b) -> Homo (GrowingSet a) (GrowingSet b)
-propagateGrowth f = Homo $ GrowingSet . S.map f . growingSet
-
-propagateSetSize :: Mono (GrowingSet a) (Increasing Int)
-propagateSetSize = Mono $ Increasing . length . growingSet
-
--- | If @a@ is Ord and we know we get fewer of them over time.
-newtype ShrinkingSet a = ShrinkingSet { shrinkingSet :: Set a }
-
-deriving instance Show a => Show (ShrinkingSet a)
-deriving instance Eq a => Eq (ShrinkingSet a)
-
-instance Ord a => PartialOrd (ShrinkingSet a) where
-    ShrinkingSet s1 +> ShrinkingSet s2 = s1 <= s2
-
-instance Ord a => JoinSemilattice (ShrinkingSet a) where
-    ShrinkingSet s1 \/ ShrinkingSet s2 = ShrinkingSet $ S.intersection s1 s2
-
-instance (Ord a, Enum a, Bounded a) => BoundedJoinSemilattice (ShrinkingSet a) where
-    bottom = ShrinkingSet $ S.fromList $ enumFromTo minBound maxBound
-
-instance (Ord a, Enum a, Bounded a) => Dual (ShrinkingSet a) a where
-    jirelement a = ShrinkingSet $ S.delete a (shrinkingSet bottom)
-    decompose = shrinkingSet -- ?
-
-propagateShrink :: (Ord a, Ord b) => (a -> b) -> ShrinkingSet a -> ShrinkingSet b
-propagateShrink f = ShrinkingSet . S.map f . shrinkingSet
+-- propagateSetSize :: Mono (GrowingSet a) (Increasing Int)
+-- propagateSetSize = Mono $ Increasing . length . growingSet
 
 --
 data Same a = Unknown | Unambiguous a | Ambiguous (Set a)
@@ -396,7 +362,7 @@ instance Ord a => PartialOrd (Same a) where
     Ambiguous s1 +> _ = True
     _ +> Ambiguous s2 = True
 
-instance Ord a => JoinSemilattice (Same a) where
+instance Ord a => Semilattice (Same a) where
     Unknown \/ p = p
     p \/ Unknown = p
     Ambiguous as \/ Unambiguous a = Ambiguous (S.insert a as) 
@@ -405,8 +371,9 @@ instance Ord a => JoinSemilattice (Same a) where
     p@(Unambiguous a1) \/ (Unambiguous a2)
         | a1 == a2 = p
         | otherwise = Ambiguous (S.fromList [a1, a2])
+    _ /\ _ = undefined 
 
-instance Ord a => BoundedJoinSemilattice (Same a) where
+instance Ord a => BoundedSemilattice (Same a) where
     bottom = Unknown
 
 instance Ord a => Dual (Same a) a where
@@ -427,10 +394,11 @@ propagateSame f (Ambiguous as) = Ambiguous (S.map f as)
 instance PartialOrd a => PartialOrd (Identity a) where
     Identity a1 +> Identity a2 = a1 +> a2
 
-instance JoinSemilattice a => JoinSemilattice (Identity a) where
+instance Semilattice a => Semilattice (Identity a) where
     Identity a1 \/ Identity a2 = Identity $ a1 \/ a2
+    Identity a1 /\ Identity a2 = Identity $ a1 /\ a2
 
-instance BoundedJoinSemilattice a => BoundedJoinSemilattice (Identity a) where
+instance BoundedSemilattice a => BoundedSemilattice (Identity a) where
     bottom = Identity bottom
 
 instance Dual a b => Dual (Identity a) b where
@@ -444,26 +412,29 @@ instance PartialOrd a => PartialOrd (Maybe a) where
     _ +> Nothing = True
     Just a +> Just b = a +> b
 
-instance JoinSemilattice a => JoinSemilattice (Maybe a) where
+instance Semilattice a => Semilattice (Maybe a) where
     Nothing \/ ma = ma
     ma \/ Nothing = ma
     Just a \/ Just b = Just (a \/ b)
+    Nothing /\ ma = Nothing
+    ma /\ Nothing = Nothing
+    Just a /\ Just b = Just (a /\ b)
 
-instance JoinSemilattice a => BoundedJoinSemilattice (Maybe a) where
+instance Semilattice a => BoundedSemilattice (Maybe a) where
     bottom = Nothing
 
 instance Dual a b => Dual (Maybe a) b where
     jirelement = Just . jirelement
     decompose (Just a) = decompose a
 
-propagateMaybe :: BoundedJoinSemilattice a => Maybe a -> a -- homomorphism
+propagateMaybe :: BoundedSemilattice a => Maybe a -> a -- homomorphism
 propagateMaybe Nothing = bottom
 propagateMaybe (Just a) = a
 
-propagateIsJust :: JoinSemilattice a => Maybe a -> Increasing Bool -- homomorphism
+propagateIsJust :: Semilattice a => Maybe a -> Increasing Bool -- homomorphism
 propagateIsJust = Increasing . isJust
 
-propagateIsNothing :: JoinSemilattice a => Maybe a -> Decreasing Bool -- homomorphism
+propagateIsNothing :: Semilattice a => Maybe a -> Decreasing Bool -- homomorphism
 propagateIsNothing = Decreasing . isNothing
 
 --
@@ -475,10 +446,11 @@ deriving instance (Eq k, Eq a) => Eq (GrowingMap k a)
 instance (Ord k, PartialOrd v) => PartialOrd (GrowingMap k v) where
     GrowingMap m1 +> GrowingMap m2 = M.isSubmapOfBy (<+) m2 m1
 
-instance (Ord k, JoinSemilattice v) => JoinSemilattice (GrowingMap k v) where
+instance (Ord k, Semilattice v) => Semilattice (GrowingMap k v) where
     GrowingMap m1 \/ GrowingMap m2 = GrowingMap $ M.unionWith (\/) m1 m2
+    GrowingMap m1 /\ GrowingMap m2 = GrowingMap $ M.intersectionWith (/\) m1 m2
 
-instance (Ord k, BoundedJoinSemilattice v) => BoundedJoinSemilattice (GrowingMap k v) where
+instance (Ord k, BoundedSemilattice v) => BoundedSemilattice (GrowingMap k v) where
     bottom = GrowingMap mempty
 
 instance (Ord k, Dual v b) => Dual (GrowingMap k v) (k, b) where
@@ -486,16 +458,16 @@ instance (Ord k, Dual v b) => Dual (GrowingMap k v) (k, b) where
     decompose (GrowingMap m) = S.fromList (M.toList m >>= (\(k, v) -> (k,) <$> S.toList (decompose v)))
 
 
-propagateMap :: (Ord k, BoundedJoinSemilattice s, BoundedJoinSemilattice s') => Homo s s' -> Homo (GrowingMap k s) (GrowingMap k s')
+propagateMap :: (Ord k, BoundedSemilattice s, BoundedSemilattice s') => Homo s s' -> Homo (GrowingMap k s) (GrowingMap k s')
 propagateMap h = Homo $ GrowingMap . fmap (homo h) . growingMap
 
-propagateMapEntry :: (Ord k, BoundedJoinSemilattice s) => k -> Homo (GrowingMap k s) s
+propagateMapEntry :: (Ord k, BoundedSemilattice s) => k -> Homo (GrowingMap k s) s
 propagateMapEntry k = Homo $ fromMaybe bottom . M.lookup k . growingMap
 
-propagateMapKeys :: (Ord k, BoundedJoinSemilattice s) => Homo (GrowingMap k s) (GrowingSet k)
-propagateMapKeys = Homo $ GrowingSet . M.keysSet . growingMap
+propagateMapKeys :: (Ord k, BoundedSemilattice s) => Homo (GrowingMap k s) (Set k)
+propagateMapKeys = Homo $ M.keysSet . growingMap
 
-propagateMapValues :: (Ord k, BoundedJoinSemilattice s) => Homo (GrowingMap k s) s
+propagateMapValues :: (Ord k, BoundedSemilattice s) => Homo (GrowingMap k s) s
 propagateMapValues = Homo $ L.foldl (\/) bottom . growingMap
 
 foo' :: Num n => Mono (GrowingMap k (Increasing n)) (Increasing n)
@@ -509,39 +481,41 @@ deriving instance Eq a => Eq (GrowingList a)
 instance PartialOrd a => PartialOrd (GrowingList a) where
     GrowingList as1 +> GrowingList as2 = length as1 >= length as2 && and (zipWith (+>) as1 as2)
 
-instance JoinSemilattice a => JoinSemilattice (GrowingList a) where
+instance Semilattice a => Semilattice (GrowingList a) where
     GrowingList l1 \/ GrowingList l2 = GrowingList $ foldl1 (\/) <$> transpose [l1, l2]
+    GrowingList l1 /\ GrowingList l2 = GrowingList $ zipWith (/\) l1 l2
 
-instance BoundedJoinSemilattice a => BoundedJoinSemilattice (GrowingList a) where
+instance BoundedSemilattice a => BoundedSemilattice (GrowingList a) where
     bottom = GrowingList []
 
 instance Dual a b => Dual (GrowingList a) (Int, b) where
     jirelement (n, b) = GrowingList $ replicate n bottom <> [jirelement b]
     decompose (GrowingList l) = S.fromList (zip [0..] l >>= (\(i, e) -> (i,) <$> S.toList (decompose e)))
 
-propagateListLength :: BoundedJoinSemilattice a => Homo (GrowingList a) (Increasing Int)
+propagateListLength :: BoundedSemilattice a => Homo (GrowingList a) (Increasing Int)
 propagateListLength = Homo $ \(GrowingList l) -> Increasing (length l)
 
-propagateListElement :: BoundedJoinSemilattice a => Int -> Homo (GrowingList a) a
+propagateListElement :: BoundedSemilattice a => Int -> Homo (GrowingList a) a
 propagateListElement i = Homo $ \(GrowingList l) -> if i >= length l then bottom else l !! i
 
-propagateListElements :: BoundedJoinSemilattice a => Int -> Homo (GrowingList a) a
+propagateListElements :: BoundedSemilattice a => Int -> Homo (GrowingList a) a
 propagateListElements i = Homo $ \(GrowingList l) -> bjsconcat l
 
 -- 
 instance (PartialOrd a, PartialOrd b) => PartialOrd (a, b) where
     (a1, b1) +> (a2, b2) = a1 +> a2 &&  b1 +> b2
 
-instance (JoinSemilattice a, JoinSemilattice b) => JoinSemilattice (a, b) where
+instance (Semilattice a, Semilattice b) => Semilattice (a, b) where
     (a1, b1) \/ (a2, b2) = (a1 \/ a2, b1 \/ b2)
+    (a1, b1) /\ (a2, b2) = (a1 /\ a2, b1 /\ b2)
 
-propagateFst :: (JoinSemilattice a, JoinSemilattice b) => Homo (a, b) a
+propagateFst :: (Semilattice a, Semilattice b) => Homo (a, b) a
 propagateFst = Homo fst
 
-propagateSnd :: (JoinSemilattice a, JoinSemilattice b) => Homo (a, b) b
+propagateSnd :: (Semilattice a, Semilattice b) => Homo (a, b) b
 propagateSnd = Homo snd
 
-instance (BoundedJoinSemilattice a, BoundedJoinSemilattice b) => BoundedJoinSemilattice (a, b) where
+instance (BoundedSemilattice a, BoundedSemilattice b) => BoundedSemilattice (a, b) where
     bottom = (bottom, bottom)
 
 instance (Dual a b, Dual c d) => Dual (a, c) (Either b d) where
@@ -550,20 +524,20 @@ instance (Dual a b, Dual c d) => Dual (a, c) (Either b d) where
     decompose (a, c) = S.fromList (Left <$> S.toList (decompose a)) `S.union` S.fromList (Right <$> S.toList (decompose c))
 
 --
--- instance (JoinSemilattice a, JoinSemilattice b, JoinSemilattice c) => JoinSemilattice (a, b, c) where
+-- instance (Semilattice a, Semilattice b, Semilattice c) => Semilattice (a, b, c) where
 --     (a1, b1, c1) \/ (a2, b2, c2) = (a1 \/ a2, b1 \/ b2, c1 \/ c2)
 
--- instance (BoundedJoinSemilattice a, BoundedJoinSemilattice b, BoundedJoinSemilattice c) => BoundedJoinSemilattice (a, b, c) where
+-- instance (BoundedSemilattice a, BoundedSemilattice b, BoundedSemilattice c) => BoundedSemilattice (a, b, c) where
 --     bottom = (bottom, bottom, bottom)
 
 -- instance (Dual a b, Dual c d, Dual e f) => Dual (a, c, e) (b, d, f) where
 --     jirelement (b, d, f) = (jirelement b, jirelement d, jirelement f) 
 
 --
--- instance (JoinSemilattice a, JoinSemilattice b, JoinSemilattice c, JoinSemilattice d) => JoinSemilattice (a, b, c, d) where
+-- instance (Semilattice a, Semilattice b, Semilattice c, Semilattice d) => Semilattice (a, b, c, d) where
 --     (a1, b1, c1, d1) \/ (a2, b2, c2, d2) = (a1 \/ a2, b1 \/ b2, c1 \/ c2, d1 \/ d2)
 
--- instance (BoundedJoinSemilattice a, BoundedJoinSemilattice b, BoundedJoinSemilattice c, BoundedJoinSemilattice d) => BoundedJoinSemilattice (a, b, c, d) where
+-- instance (BoundedSemilattice a, BoundedSemilattice b, BoundedSemilattice c, BoundedSemilattice d) => BoundedSemilattice (a, b, c, d) where
 --     bottom = (bottom, bottom, bottom, bottom)
 
 -- instance (Dual a b, Dual c d, Dual e f, Dual g h) => Dual (a, c, e, g) (b, d, f, h) where
@@ -578,13 +552,17 @@ instance (PartialOrd a, PartialOrd b) => PartialOrd (Either a b) where
     Left _ +> Right _ = False
     Right _ +> Left _ = True
 
-instance (JoinSemilattice a, JoinSemilattice b) => JoinSemilattice (Either a b) where
+instance (Semilattice a, Semilattice b) => Semilattice (Either a b) where
     Left a1 \/ Left a2 = Left (a1 \/ a2)
     Right b1 \/ Right b2 = Right (b1 \/ b2)
     Left _ \/ r@(Right _) = r
     r@(Right _) \/ Left _ = r
+    Left a1 /\ Left a2 = Left (a1 /\ a2)
+    Right b1 /\ Right b2 = Right (b1 /\ b2)
+    l@(Left _) /\ Right _ = l
+    Right _ /\ l@(Left _) = l
 
-instance (BoundedJoinSemilattice a, JoinSemilattice b) => BoundedJoinSemilattice (Either a b) where
+instance (BoundedSemilattice a, Semilattice b) => BoundedSemilattice (Either a b) where
     bottom = Left bottom
 
 instance (Dual a b, Dual c d) => Dual (Either a c) (Either b d) where
@@ -607,17 +585,17 @@ instance (Dual a b, Dual c d) => Dual (Either a c) (Either b d) where
 
 --
 
-data E s where
-    E :: (Ord s, BoundedJoinSemilattice s) => GrowingSet s -> E s
+-- data E s where
+--     E :: (Ord s, BoundedSemilattice s) => GrowingSet s -> E s
 
-pHomo :: (BoundedJoinSemilattice a) => (a -> b) -> GrowingSet a -> b
-pHomo f g = f $ join g
+-- pHomo :: (BoundedSemilattice a) => (a -> b) -> GrowingSet a -> b
+-- pHomo f g = f $ join g
 
-pMono :: (BoundedJoinSemilattice a, BoundedJoinSemilattice b, Ord b) => (a -> b) -> GrowingSet a -> b
-pMono f g = bjsconcat $ S.map f (Semilattice.all g)
+-- pMono :: (BoundedSemilattice a, BoundedSemilattice b, Ord b) => (a -> b) -> GrowingSet a -> b
+-- pMono f g = bjsconcat $ S.map f (Semilattice.all g)
 
-join :: (BoundedJoinSemilattice s) => GrowingSet s -> s
-join (GrowingSet ss) = bjsconcat ss
+-- join :: (BoundedSemilattice s) => GrowingSet s -> s
+-- join (GrowingSet ss) = bjsconcat ss
 
-all :: (BoundedJoinSemilattice s) => GrowingSet s -> S.Set s
-all (GrowingSet ss) = ss
+-- all :: (BoundedSemilattice s) => GrowingSet s -> S.Set s
+-- all (GrowingSet ss) = ss
