@@ -481,13 +481,13 @@ instance Dual a b => Dual [a] (Int, b) where
     decompose l = S.fromList (zip [0..] l >>= (\(i, e) -> (i,) <$> S.toList (decompose e)))
 
 propagateListLength :: BoundedSemilattice a => Homo [a] (Increasing Int)
-propagateListLength = Homo $ \l -> Increasing (length l)
+propagateListLength = Homo $ Increasing . length
 
 propagateListElement :: BoundedSemilattice a => Int -> Homo [a] a
 propagateListElement i = Homo $ \l -> if i >= length l then bottom else l !! i
 
 propagateListElements :: BoundedSemilattice a => Int -> Homo [a] a
-propagateListElements i = Homo $ bjsconcat
+propagateListElements i = Homo bjsconcat
 
 -- 
 instance (PartialOrd a, PartialOrd b) => PartialOrd (a, b) where
