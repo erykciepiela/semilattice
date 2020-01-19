@@ -21,17 +21,17 @@ type PositionInShipment = Int
 type ST = Int
 
 -- bounded join semilattices
-type Batch = GrowingMap ST (Increasing Qty)
+type Batch = Map ST (Increasing Qty)
 
-type Bag = GrowingMap SKU Batch
+type Bag = Map SKU Batch
 
-type DT = GrowingMap PositionInDT Bag
+type DT = Map PositionInDT Bag
 
-type Frame = GrowingMap PositionInFrame (Same LPN, DT)
+type Frame = Map PositionInFrame (Same LPN, DT)
 
-type Van = GrowingMap PositionInVan (Same LPN, Frame)
+type Van = Map PositionInVan (Same LPN, Frame)
 
-type Shipment = GrowingMap PositionInShipment (Same LPN, Van)
+type Shipment = Map PositionInShipment (Same LPN, Van)
 type ShipmentDual = (PositionInShipment, Either LPN (PositionInVan, Either LPN (PositionInFrame, Either LPN (PositionInDT, (SKU, (ST, Qty))))))
 
 -- join-irreducible elements
@@ -98,10 +98,11 @@ main = do
                 frameManufactured 0 0 "F1",  -- frame 0 in van 0 has been loaded and it has LPN F1
                 vanManufactured 0 "V1"       -- 0 has been loaded and it has LPN V1
             ]
-    let expectedState = GrowingMap {growingMap = fromList [(0,(Unambiguous "V1",GrowingMap {growingMap = fromList [(0,(Unambiguous "F1",GrowingMap {growingMap = fromList [(0,(Unambiguous "DT1",GrowingMap {growingMap = fromList [(0,GrowingMap {growingMap = fromList [("apple",GrowingMap {growingMap = fromList [(0,Increasing {increasing = 3})]}),("coconut",GrowingMap {growingMap = fromList [(2,Increasing {increasing = 1}),(3,Increasing {increasing = 1})]})]}),(1,GrowingMap {growingMap = fromList [("banana",GrowingMap {growingMap = fromList [(1,Increasing {increasing = 4})]})]}),(2,GrowingMap {growingMap = fromList [("donut",GrowingMap {growingMap = fromList [(4,Increasing {increasing = 5})]})]})]})),(1,(Unambiguous "DT2",GrowingMap {growingMap = fromList [(0,GrowingMap {growingMap = fromList [("donut",GrowingMap {growingMap = fromList [(4,Increasing {increasing = 7})]})]})]}))]}))]}))]}
+    let expectedState = fromList [(0,(Unambiguous "V1",fromList [(0,(Unambiguous "F1",fromList [(0,(Unambiguous "DT1",fromList [(0,fromList [("apple",fromList [(0,Increasing {increasing = 3})]),("coconut",fromList [(2,Increasing {increasing = 1}),(3,Increasing {increasing = 1})])]),(1,fromList [("banana",fromList [(1,Increasing {increasing = 4})])]),(2,fromList [("donut",fromList [(4,Increasing {increasing = 5})])])])),(1,(Unambiguous "DT2",fromList [(0,fromList [("donut",fromList [(4,Increasing {increasing = 7})])])]))]))]))]
     print $ all (\es -> (fmap jirelement <$> es) `isEventuallyConsistent` expectedState) (L.take 100000 (messedUp events))  -- True
     print $ (`propagatedHomo` (prop . composeHomo)) (collect events) `ascendsTowards` S.fromList ["apple","coconut"]
     print $ decompose expectedState 
+    
     -- print $ all (`isEventuallyConsistent` (S.Set {growingSet = S.fromList ["apple","coconut"]})) ((propagateHomo prop . fmap (fmap bjsconcat) <$> (L.take 100000 (messedUp events))))
 
 -- what SKUs are in given bag

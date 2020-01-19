@@ -38,7 +38,6 @@ module Semilattice (
     Same(..),
     propagateSame,
     -- | Higher-kinded bjsconcat semilattices
-    GrowingMap(..),
     propagateMap,
     propagateMapEntry,
     propagateMapKeys,
@@ -51,7 +50,6 @@ module Semilattice (
 
 import Prelude hiding (id, (.))
 import Data.Set as S
--- import Data.Semigroup
 import qualified Data.Map as M
 import Data.List as L
 import Control.Category
@@ -136,6 +134,7 @@ isAscendingTowards ss s = isAscending ss && last ss == s -- assuming ss not empt
 ascendsTo :: (Eq s, BoundedSemilattice s) => [s] -> s -> Bool
 ascendsTo [] final = final == bottom
 ascendsTo ss final = let ss' = bjsscan ss in isAscending ss' && L.all (<+ final) ss' && last ss' == final
+-- ascendsTo ss final = let ss' = bjsscan ss in last ss' == final
     where
         isAscending :: (Eq s, BoundedSemilattice s) => [s] -> Bool
         isAscending [] = True
@@ -438,40 +437,34 @@ propagateIsNothing :: Semilattice a => Maybe a -> Decreasing Bool -- homomorphis
 propagateIsNothing = Decreasing . isNothing
 
 --
-newtype GrowingMap k v = GrowingMap { growingMap :: M.Map k v}
+instance (Ord k, PartialOrd v) => PartialOrd (M.Map k v) where
+    m1 +> m2 = M.isSubmapOfBy (<+) m2 m1
 
-deriving instance (Show k, Show v) => Show (GrowingMap k v)
-deriving instance (Eq k, Eq a) => Eq (GrowingMap k a)
+instance (Ord k, Semilattice v) => Semilattice (M.Map k v) where
+    (\/) = M.unionWith (\/)
+    (/\) = M.intersectionWith (/\)
 
-instance (Ord k, PartialOrd v) => PartialOrd (GrowingMap k v) where
-    GrowingMap m1 +> GrowingMap m2 = M.isSubmapOfBy (<+) m2 m1
+instance (Ord k, BoundedSemilattice v) => BoundedSemilattice (M.Map k v) where
+    bottom = mempty
 
-instance (Ord k, Semilattice v) => Semilattice (GrowingMap k v) where
-    GrowingMap m1 \/ GrowingMap m2 = GrowingMap $ M.unionWith (\/) m1 m2
-    GrowingMap m1 /\ GrowingMap m2 = GrowingMap $ M.intersectionWith (/\) m1 m2
+instance (Ord k, Dual v b) => Dual (M.Map k v) (k, b) where
+    jirelement (k, b) = M.singleton k $ jirelement b
+    decompose m = S.fromList (M.toList m >>= (\(k, v) -> (k,) <$> S.toList (decompose v)))
 
-instance (Ord k, BoundedSemilattice v) => BoundedSemilattice (GrowingMap k v) where
-    bottom = GrowingMap mempty
+propagateMap :: (Ord k, BoundedSemilattice s, BoundedSemilattice s') => Homo s s' -> Homo (M.Map k s) (M.Map k s')
+propagateMap h = Homo $ fmap (homo h)
 
-instance (Ord k, Dual v b) => Dual (GrowingMap k v) (k, b) where
-    jirelement (k, b) = GrowingMap $ M.singleton k $ jirelement b
-    decompose (GrowingMap m) = S.fromList (M.toList m >>= (\(k, v) -> (k,) <$> S.toList (decompose v)))
+propagateMapEntry :: (Ord k, BoundedSemilattice s) => k -> Homo (M.Map k s) s
+propagateMapEntry k = Homo $ fromMaybe bottom . M.lookup k
 
+propagateMapKeys :: (Ord k, BoundedSemilattice s) => Homo (M.Map k s) (Set k)
+propagateMapKeys = Homo $ M.keysSet
 
-propagateMap :: (Ord k, BoundedSemilattice s, BoundedSemilattice s') => Homo s s' -> Homo (GrowingMap k s) (GrowingMap k s')
-propagateMap h = Homo $ GrowingMap . fmap (homo h) . growingMap
+propagateMapValues :: (Ord k, BoundedSemilattice s) => Homo (M.Map k s) s
+propagateMapValues = Homo $ L.foldl (\/) bottom
 
-propagateMapEntry :: (Ord k, BoundedSemilattice s) => k -> Homo (GrowingMap k s) s
-propagateMapEntry k = Homo $ fromMaybe bottom . M.lookup k . growingMap
-
-propagateMapKeys :: (Ord k, BoundedSemilattice s) => Homo (GrowingMap k s) (Set k)
-propagateMapKeys = Homo $ M.keysSet . growingMap
-
-propagateMapValues :: (Ord k, BoundedSemilattice s) => Homo (GrowingMap k s) s
-propagateMapValues = Homo $ L.foldl (\/) bottom . growingMap
-
-foo' :: Num n => Mono (GrowingMap k (Increasing n)) (Increasing n)
-foo' = Mono $ \(GrowingMap map) -> Increasing $ sum $ increasing <$> map
+foo' :: Num n => Mono (M.Map k (Increasing n)) (Increasing n)
+foo' = Mono $ \map -> Increasing $ sum $ increasing <$> map
 
 --
 newtype GrowingList a = GrowingList { growingList :: [a] }
