@@ -93,10 +93,10 @@ main = do
                 picked 0 0 0 0 "coconut" 3 1,-- 1 coconut moved from ST 3 to bag 0 in dt 0 in frame 0 in van 0, but it's too few, we need more...
                 picked 0 0 0 2 "donut" 4 5,  -- 5 donuts moved from ST 4 to bag 2 in dt 0 in frame 0 in van 0, and from the same ST but to different DT...
                 picked 0 0 1 0 "donut" 4 7,  -- 7 donuts moved from ST 4 to bag 0 in dt 1 in frame 0 in van 0
-                dtManufactured 0 0 0 "DT1",       -- dt 0 in frame 0 in van 0 has been picket totally and it has LPN DT1
-                dtManufactured 0 0 1 "DT2",       -- dt 1 in frame 0 in van 0 has been picket totally and it has LPN DT2
-                frameManufactured 0 0 "F1",       -- frame 0 in van 0 has been loaded and it has LPN F1
-                vanManufactured 0 "V1"            -- 0 has been loaded and it has LPN V1
+                dtManufactured 0 0 0 "DT1",  -- dt 0 in frame 0 in van 0 has been picket totally and it has LPN DT1
+                dtManufactured 0 0 1 "DT2",  -- dt 1 in frame 0 in van 0 has been picket totally and it has LPN DT2
+                frameManufactured 0 0 "F1",  -- frame 0 in van 0 has been loaded and it has LPN F1
+                vanManufactured 0 "V1"       -- 0 has been loaded and it has LPN V1
             ]
     let expectedState = GrowingMap {growingMap = fromList [(0,(Unambiguous "V1",GrowingMap {growingMap = fromList [(0,(Unambiguous "F1",GrowingMap {growingMap = fromList [(0,(Unambiguous "DT1",GrowingMap {growingMap = fromList [(0,GrowingMap {growingMap = fromList [("apple",GrowingMap {growingMap = fromList [(0,Increasing {increasing = 3})]}),("coconut",GrowingMap {growingMap = fromList [(2,Increasing {increasing = 1}),(3,Increasing {increasing = 1})]})]}),(1,GrowingMap {growingMap = fromList [("banana",GrowingMap {growingMap = fromList [(1,Increasing {increasing = 4})]})]}),(2,GrowingMap {growingMap = fromList [("donut",GrowingMap {growingMap = fromList [(4,Increasing {increasing = 5})]})]})]})),(1,(Unambiguous "DT2",GrowingMap {growingMap = fromList [(0,GrowingMap {growingMap = fromList [("donut",GrowingMap {growingMap = fromList [(4,Increasing {increasing = 7})]})]})]}))]}))]}))]}
     print $ all (`isEventuallyConsistent` expectedState) (L.take 100000 (messedUp (jirelement <$> events)))  -- True
