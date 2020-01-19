@@ -32,22 +32,24 @@ type Frame = Map PositionInFrame (Same LPN, DT)
 type Van = Map PositionInVan (Same LPN, Frame)
 
 type Shipment = Map PositionInShipment (Same LPN, Van)
-type ShipmentDual = (PositionInShipment, Either LPN (PositionInVan, Either LPN (PositionInFrame, Either LPN (PositionInDT, (SKU, (ST, Qty))))))
 
--- join-irreducible elements
-picked :: PositionInShipment -> PositionInVan -> PositionInFrame -> PositionInDT -> SKU -> ST -> Qty -> ShipmentDual
+-- | ShipmentEvent is dual to Shipment i.e. every Shipment can be build with a number of ShipmentEvents joined, also every Shipment can be split into number of ShipmentEvents
+type ShipmentEvent = (PositionInShipment, Either LPN (PositionInVan, Either LPN (PositionInFrame, Either LPN (PositionInDT, (SKU, (ST, Qty))))))
+
+-- | ShipmentEvent constructors
+picked :: PositionInShipment -> PositionInVan -> PositionInFrame -> PositionInDT -> SKU -> ST -> Qty -> ShipmentEvent
 picked pishipment pivan piframe pidt skuId st qty = (pishipment, Right (pivan, Right (piframe, Right (pidt, (skuId, (st, qty))))))
 
-dtManufactured :: PositionInShipment -> PositionInVan -> PositionInFrame -> LPN -> ShipmentDual
+dtManufactured :: PositionInShipment -> PositionInVan -> PositionInFrame -> LPN -> ShipmentEvent
 dtManufactured pishipment pivan piframe dtlpn = (pishipment, Right (pivan, Right (piframe, Left dtlpn)))
 
-frameManufactured :: PositionInShipment -> PositionInVan -> LPN -> ShipmentDual
+frameManufactured :: PositionInShipment -> PositionInVan -> LPN -> ShipmentEvent
 frameManufactured pishipment pivan frameLpn = (pishipment, Right (pivan, Left frameLpn))
 
-vanManufactured :: PositionInShipment -> LPN -> ShipmentDual
+vanManufactured :: PositionInShipment -> LPN -> ShipmentEvent
 vanManufactured pishipment vanLpn = (pishipment, Left vanLpn)
 
--- homomorphisms
+-- | Shipment homomorphisms
 shipmentVan :: PositionInShipment -> Homo Shipment Van
 shipmentVan piShipment = propagateSnd . propagateMapEntry piShipment 
 
@@ -84,7 +86,7 @@ main = do
     -- print $ length $ messedUp [1..2] -- for 2 event it's = 192
     -- print $ length $ messedUp [1..3] -- for 3 event it's > 23k
     -- print $ length $ messedUp [1..4] -- for 4 event it's > 5M
-    let events = 
+    let shipmentEvents = 
             [
                 picked 0 0 0 0 "apple" 0 3,  -- 3 apples moved from ST 0 to bag 0 in dt 0 in frame 0 in van 0
                 picked 0 0 0 1 "banana" 1 2, -- 2 bananas moved from ST 1 to bag 0 in dt 0 in frame 0 in van 0, actually it was...
@@ -98,12 +100,12 @@ main = do
                 frameManufactured 0 0 "F1",  -- frame 0 in van 0 has been loaded and it has LPN F1
                 vanManufactured 0 "V1"       -- 0 has been loaded and it has LPN V1
             ]
-    let expectedState = fromList [(0,(Unambiguous "V1",fromList [(0,(Unambiguous "F1",fromList [(0,(Unambiguous "DT1",fromList [(0,fromList [("apple",fromList [(0,Increasing {increasing = 3})]),("coconut",fromList [(2,Increasing {increasing = 1}),(3,Increasing {increasing = 1})])]),(1,fromList [("banana",fromList [(1,Increasing {increasing = 4})])]),(2,fromList [("donut",fromList [(4,Increasing {increasing = 5})])])])),(1,(Unambiguous "DT2",fromList [(0,fromList [("donut",fromList [(4,Increasing {increasing = 7})])])]))]))]))]
-    print $ all (\es -> (fmap jirelement <$> es) `isEventuallyConsistent` expectedState) (L.take 100000 (messedUp events))  -- True
-    print $ (`propagatedHomo` (prop . composeHomo)) (collect events) `ascendsTowards` S.fromList ["apple","coconut"]
-    print $ decompose expectedState 
+    let shipmentShipment = fromList [(0,(Unambiguous "V1",fromList [(0,(Unambiguous "F1",fromList [(0,(Unambiguous "DT1",fromList [(0,fromList [("apple",fromList [(0,Increasing {increasing = 3})]),("coconut",fromList [(2,Increasing {increasing = 1}),(3,Increasing {increasing = 1})])]),(1,fromList [("banana",fromList [(1,Increasing {increasing = 4})])]),(2,fromList [("donut",fromList [(4,Increasing {increasing = 5})])])])),(1,(Unambiguous "DT2",fromList [(0,fromList [("donut",fromList [(4,Increasing {increasing = 7})])])]))]))]))]
+    print $ all (\es -> (fmap jirelement <$> es) `isEventuallyConsistent` shipmentShipment) (L.take 100000 (messedUp shipmentEvents))  -- True
+    print $ (`propagatedHomo` (prop . composeHomo)) (collect shipmentEvents) `ascendsTowards` S.fromList ["apple","coconut"] -- True
+    print $ decompose shipmentShipment 
     
-    -- print $ all (`isEventuallyConsistent` (S.Set {growingSet = S.fromList ["apple","coconut"]})) ((propagateHomo prop . fmap (fmap bjsconcat) <$> (L.take 100000 (messedUp events))))
+    -- print $ all (`isEventuallyConsistent` (S.Set {growingSet = S.fromList ["apple","coconut"]})) ((propagateHomo prop . fmap (fmap bjsconcat) <$> (L.take 100000 (messedUp shipmentEvents))))
 
 -- what SKUs are in given bag
 prop :: Homo Shipment (S.Set SKU)
