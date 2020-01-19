@@ -42,7 +42,6 @@ module Semilattice (
     propagateMapEntry,
     propagateMapKeys,
     propagateMapValues,
-    GrowingList(..),
     --
     propagateFst,
     propagateSnd
@@ -467,32 +466,28 @@ foo' :: Num n => Mono (M.Map k (Increasing n)) (Increasing n)
 foo' = Mono $ \map -> Increasing $ sum $ increasing <$> map
 
 --
-newtype GrowingList a = GrowingList { growingList :: [a] }
+instance PartialOrd a => PartialOrd [a] where
+    as1 +> as2 = length as1 >= length as2 && and (zipWith (+>) as1 as2)
 
-deriving instance Eq a => Eq (GrowingList a)
+instance Semilattice a => Semilattice [a] where
+    l1 \/ l2 = foldl1 (\/) <$> transpose [l1, l2]
+    l1 /\ l2 = zipWith (/\) l1 l2
 
-instance PartialOrd a => PartialOrd (GrowingList a) where
-    GrowingList as1 +> GrowingList as2 = length as1 >= length as2 && and (zipWith (+>) as1 as2)
+instance BoundedSemilattice a => BoundedSemilattice [a] where
+    bottom = mempty
 
-instance Semilattice a => Semilattice (GrowingList a) where
-    GrowingList l1 \/ GrowingList l2 = GrowingList $ foldl1 (\/) <$> transpose [l1, l2]
-    GrowingList l1 /\ GrowingList l2 = GrowingList $ zipWith (/\) l1 l2
+instance Dual a b => Dual [a] (Int, b) where
+    jirelement (n, b) = replicate n bottom <> [jirelement b]
+    decompose l = S.fromList (zip [0..] l >>= (\(i, e) -> (i,) <$> S.toList (decompose e)))
 
-instance BoundedSemilattice a => BoundedSemilattice (GrowingList a) where
-    bottom = GrowingList []
+propagateListLength :: BoundedSemilattice a => Homo [a] (Increasing Int)
+propagateListLength = Homo $ \l -> Increasing (length l)
 
-instance Dual a b => Dual (GrowingList a) (Int, b) where
-    jirelement (n, b) = GrowingList $ replicate n bottom <> [jirelement b]
-    decompose (GrowingList l) = S.fromList (zip [0..] l >>= (\(i, e) -> (i,) <$> S.toList (decompose e)))
+propagateListElement :: BoundedSemilattice a => Int -> Homo [a] a
+propagateListElement i = Homo $ \l -> if i >= length l then bottom else l !! i
 
-propagateListLength :: BoundedSemilattice a => Homo (GrowingList a) (Increasing Int)
-propagateListLength = Homo $ \(GrowingList l) -> Increasing (length l)
-
-propagateListElement :: BoundedSemilattice a => Int -> Homo (GrowingList a) a
-propagateListElement i = Homo $ \(GrowingList l) -> if i >= length l then bottom else l !! i
-
-propagateListElements :: BoundedSemilattice a => Int -> Homo (GrowingList a) a
-propagateListElements i = Homo $ \(GrowingList l) -> bjsconcat l
+propagateListElements :: BoundedSemilattice a => Int -> Homo [a] a
+propagateListElements i = Homo $ bjsconcat
 
 -- 
 instance (PartialOrd a, PartialOrd b) => PartialOrd (a, b) where
