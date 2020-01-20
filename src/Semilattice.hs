@@ -505,7 +505,7 @@ instance Dual a b => Dual (Identity a) b where
     jirelement = Identity . jirelement
     decompose (Identity a) = decompose a
 
-instance Dual a b => Dual (Maybe a) (Maybe b) where
+instance Dual a b => Dual (Maybe a) (Maybe b) where -- ?
     jirelement Nothing = Nothing
     jirelement (Just b) = Just $ jirelement b
     decompose Nothing = S.empty
