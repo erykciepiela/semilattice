@@ -11,9 +11,9 @@ import qualified Data.Set as S
 import Debug.Trace
 
 -- domain types
-type SKU = String
+type SKU = Int
 type Qty = Int
-type LPN = String
+type LPN = Int
 type PositionInDT = Int
 type PositionInFrame = Int
 type PositionInVan = Int
@@ -88,24 +88,24 @@ main = do
     -- print $ length $ messedUp [1..4] -- for 4 event it's > 5M
     let shipmentEvents = 
             [
-                picked 0 0 0 0 "apple" 0 3,  -- 3 apples moved from ST 0 to bag 0 in dt 0 in frame 0 in van 0
-                picked 0 0 0 1 "banana" 1 2, -- 2 bananas moved from ST 1 to bag 0 in dt 0 in frame 0 in van 0, actually it was...
-                picked 0 0 0 1 "banana" 1 4, -- 4 bananas moved from ST 1 to bag 0 in dt 0 in frame 0 in van 0, and it's ok as long as 4 >= 2
-                picked 0 0 0 0 "coconut" 2 1,-- 1 coconut moved from ST 2 to bag 0 in dt 0 in frame 0 in van 0, but it's too few, and there's no more cocunuts in ST 2, so...
-                picked 0 0 0 0 "coconut" 3 1,-- 1 coconut moved from ST 3 to bag 0 in dt 0 in frame 0 in van 0, but it's too few, we need more...
-                picked 0 0 0 2 "donut" 4 5,  -- 5 donuts moved from ST 4 to bag 2 in dt 0 in frame 0 in van 0, and from the same ST but to different DT...
-                picked 0 0 1 0 "donut" 4 7,  -- 7 donuts moved from ST 4 to bag 0 in dt 1 in frame 0 in van 0
-                dtManufactured 0 0 0 "DT1",  -- dt 0 in frame 0 in van 0 has been picket totally and it has LPN DT1
-                dtManufactured 0 0 1 "DT2",  -- dt 1 in frame 0 in van 0 has been picket totally and it has LPN DT2
-                frameManufactured 0 0 "F1",  -- frame 0 in van 0 has been loaded and it has LPN F1
-                vanManufactured 0 "V1"       -- 0 has been loaded and it has LPN V1
+                picked 0 0 0 0 1 0 3,  -- 3 apples moved from ST 0 to bag 0 in dt 0 in frame 0 in van 0
+                picked 0 0 0 1 2 1 2, -- 2 bananas moved from ST 1 to bag 0 in dt 0 in frame 0 in van 0, actually it was...
+                picked 0 0 0 1 2 1 4, -- 4 bananas moved from ST 1 to bag 0 in dt 0 in frame 0 in van 0, and it's ok as long as 4 >= 2
+                picked 0 0 0 0 3 2 1,-- 1 3 moved from ST 2 to bag 0 in dt 0 in frame 0 in van 0, but it's too few, and there's no more cocunuts in ST 2, so...
+                picked 0 0 0 0 3 3 1,-- 1 3 moved from ST 3 to bag 0 in dt 0 in frame 0 in van 0, but it's too few, we need more...
+                picked 0 0 0 2 4 4 5,  -- 5 donuts moved from ST 4 to bag 2 in dt 0 in frame 0 in van 0, and from the same ST but to different DT...
+                picked 0 0 1 0 4 4 7,  -- 7 donuts moved from ST 4 to bag 0 in dt 1 in frame 0 in van 0
+                dtManufactured 0 0 0 1,  -- dt 0 in frame 0 in van 0 has been picket totally and it has LPN DT1
+                dtManufactured 0 0 1 2,  -- dt 1 in frame 0 in van 0 has been picket totally and it has LPN DT2
+                frameManufactured 0 0 1,  -- frame 0 in van 0 has been loaded and it has LPN F1
+                vanManufactured 0 1       -- 0 has been loaded and it has LPN V1
             ]
-    let shipmentShipment = fromList [(0,(Unambiguous "V1",fromList [(0,(Unambiguous "F1",fromList [(0,(Unambiguous "DT1",fromList [(0,fromList [("apple",fromList [(0,Increasing {increasing = 3})]),("coconut",fromList [(2,Increasing {increasing = 1}),(3,Increasing {increasing = 1})])]),(1,fromList [("banana",fromList [(1,Increasing {increasing = 4})])]),(2,fromList [("donut",fromList [(4,Increasing {increasing = 5})])])])),(1,(Unambiguous "DT2",fromList [(0,fromList [("donut",fromList [(4,Increasing {increasing = 7})])])]))]))]))]
+    let shipmentShipment = fromList [(0,(Unambiguous 1,fromList [(0,(Unambiguous 1,fromList [(0,(Unambiguous 1,fromList [(0,fromList [(1,fromList [(0,Increasing {increasing = 3})]),(3,fromList [(2,Increasing {increasing = 1}),(3,Increasing {increasing = 1})])]),(1,fromList [(2,fromList [(1,Increasing {increasing = 4})])]),(2,fromList [(4,fromList [(4,Increasing {increasing = 5})])])])),(1,(Unambiguous 2,fromList [(0,fromList [(4,fromList [(4,Increasing {increasing = 7})])])]))]))]))]
     print $ all (\es -> (fmap jirelement <$> es) `isEventuallyConsistent` shipmentShipment) (L.take 100000 (messedUp shipmentEvents))  -- True
-    print $ (`propagatedHomo` (prop . composeHomo)) (collect shipmentEvents) `ascendsTowards` S.fromList ["apple","coconut"] -- True
+    print $ (`propagatedHomo` (prop . composeHomo)) (collect shipmentEvents) `ascendsTowards` S.fromList [1, 3] -- True
     print $ decompose shipmentShipment 
     
-    -- print $ all (`isEventuallyConsistent` (S.Set {growingSet = S.fromList ["apple","coconut"]})) ((propagateHomo prop . fmap (fmap bjsconcat) <$> (L.take 100000 (messedUp shipmentEvents))))
+    -- print $ all (`isEventuallyConsistent` (S.Set {growingSet = S.fromList ["1","3"]})) ((propagateHomo prop . fmap (fmap bjsconcat) <$> (L.take 100000 (messedUp shipmentEvents))))
 
 -- what SKUs are in given bag
 prop :: Homo Shipment (S.Set SKU)
