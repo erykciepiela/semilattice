@@ -153,10 +153,10 @@ instance Category Homo where
     h1 . h2 = Homo $ homo h1 . homo h2 
 
 decomposeHomo :: Dual s b => Homo s (Set b)
-decomposeHomo = Homo $ decompose
+decomposeHomo = Homo decompose
 
 composeHomo :: Dual s b => Homo (Set b) s
-composeHomo = Homo $ compose
+composeHomo = Homo compose
 
 collect :: Ord a => [a] -> [Set a]
 collect = scanl (\s a -> a `S.insert` s) mempty
@@ -400,33 +400,13 @@ propagateMapEntry :: (Ord k, Semilattice s, Bounded s) => k -> Homo (M.Map k s) 
 propagateMapEntry k = Homo $ fromMaybe minBound . M.lookup k
 
 propagateMapKeys :: (Ord k, Semilattice s, Bounded s) => Homo (M.Map k s) (Set k)
-propagateMapKeys = Homo $ M.keysSet
+propagateMapKeys = Homo M.keysSet
 
 propagateMapValues :: (Ord k, Semilattice s, Bounded s) => Homo (M.Map k s) s
 propagateMapValues = Homo $ L.foldl (\/) minBound
 
 foo' :: Num n => Mono (M.Map k (Increasing n)) (Increasing n)
 foo' = Mono $ \map -> Increasing $ sum $ increasing <$> map
-
---
--- instance PartialOrd a => PartialOrd [a] where
---     as1 +> as2 = length as1 >= length as2 && and (zipWith (+>) as1 as2)
-
--- instance Semilattice a => Semilattice [a] where
---     l1 \/ l2 = foldl1 (\/) <$> transpose [l1, l2]
---     l1 /\ l2 = zipWith (/\) l1 l2
-
--- instance Semilattice a, Bounded a => BoundedSemilattice [a] where
---     minBound = mempty
-
--- propagateListLength :: Semilattice a, Bounded a => Homo [a] (Increasing Int)
--- propagateListLength = Homo $ Increasing . length
-
--- propagateListElement :: Semilattice a, Bounded a => Int -> Homo [a] a
--- propagateListElement i = Homo $ \l -> if i >= length l then minBound else l !! i
-
--- propagateListElements :: Semilattice a, Bounded a => Int -> Homo [a] a
--- propagateListElements i = Homo bjsconcat
 
 -- 
 instance (PartialOrd a, PartialOrd b) => PartialOrd (a, b) where
@@ -436,35 +416,13 @@ instance (Semilattice a, Semilattice b) => Semilattice (a, b) where
     (a1, b1) \/ (a2, b2) = (a1 \/ a2, b1 \/ b2)
     (a1, b1) /\ (a2, b2) = (a1 /\ a2, b1 /\ b2)
 
+-- instance (Bounded a, Bounded b) => Bounded (a, b) where -- in GHC.Enum
+
 propagateFst :: (Semilattice a, Semilattice b) => Homo (a, b) a
 propagateFst = Homo fst
 
 propagateSnd :: (Semilattice a, Semilattice b) => Homo (a, b) b
 propagateSnd = Homo snd
-
--- instance (Bounded a, Bounded b) => Bounded (a, b) where -- in GHC.Enum
-
---
--- instance (Semilattice a, Semilattice b, Semilattice c) => Semilattice (a, b, c) where
---     (a1, b1, c1) \/ (a2, b2, c2) = (a1 \/ a2, b1 \/ b2, c1 \/ c2)
-
--- instance (Semilattice a, Bounded a, Semilattice b, Bounded b, BoundedSemilattice c) => BoundedSemilattice (a, b, c) where
---     minBound = (minBound, minBound, minBound)
-
--- instance (Dual a b, Dual c d, Dual e f) => Dual (a, c, e) (b, d, f) where
---     jirelement (b, d, f) = (jirelement b, jirelement d, jirelement f) 
-
---
--- instance (Semilattice a, Semilattice b, Semilattice c, Semilattice d) => Semilattice (a, b, c, d) where
---     (a1, b1, c1, d1) \/ (a2, b2, c2, d2) = (a1 \/ a2, b1 \/ b2, c1 \/ c2, d1 \/ d2)
-
--- instance (Semilattice a, Bounded a, Semilattice b, Bounded b, BoundedSemilattice c, BoundedSemilattice d) => BoundedSemilattice (a, b, c, d) where
---     minBound = (minBound, minBound, minBound, minBound)
-
--- instance (Dual a b, Dual c d, Dual e f, Dual g h) => Dual (a, c, e, g) (b, d, f, h) where
---     jirelement (b, d, f, h) = (jirelement b, jirelement d, jirelement f, jirelement h) 
-
--- and so on...
 
 --
 instance (PartialOrd a, PartialOrd b) => PartialOrd (Either a b) where
@@ -524,10 +482,6 @@ instance Dual (Proxy a) () where
     jirelement () = Proxy
     decompose Proxy = S.singleton ()
 
-instance Dual a b => Dual (Identity a) b where
-    jirelement = Identity . jirelement
-    decompose (Identity a) = decompose a
-
 instance (Ord a, Bounded a) => Dual (Decreasing a) a where
     jirelement = Decreasing
     decompose = S.singleton . decreasing
@@ -547,10 +501,15 @@ instance (Ord a, Enum a, Bounded a) => Dual (Set a) a where
     decompose = id
 
 -- higher-kinded duals
-instance (Dual a b, Ord b, Enum b, Bounded b) => Dual (Maybe a) b where
-    jirelement = Just . jirelement
-    decompose (Just a) = decompose a
-    decompose Nothing = minBound
+instance Dual a b => Dual (Identity a) b where
+    jirelement = Identity . jirelement
+    decompose (Identity a) = decompose a
+
+instance Dual a b => Dual (Maybe a) (Maybe b) where
+    jirelement Nothing = Nothing
+    jirelement (Just b) = Just $ jirelement b
+    decompose Nothing = S.empty
+    decompose (Just a) = S.fromList (Just <$> S.toList (decompose a)) -- ?
 
 instance (Dual a b, Dual c d) => Dual (Either a c) (Either b d) where
     jirelement (Left b) = Left $ jirelement b
@@ -562,10 +521,6 @@ instance (Dual a b, Dual c d) => Dual (a, c) (Either b d) where
     jirelement (Left b) = (jirelement b, minBound) 
     jirelement (Right d) = (minBound, jirelement d) 
     decompose (a, c) = S.fromList (Left <$> S.toList (decompose a)) `S.union` S.fromList (Right <$> S.toList (decompose c))
-
--- instance Dual a b => Dual [a] (Int, b) where
---     jirelement (n, b) = replicate n minBound <> [jirelement b]
---     decompose l = S.fromList (zip [0..] l >>= (\(i, e) -> (i,) <$> S.toList (decompose e)))
 
 instance (Ord k, Enum k, Bounded k, Dual v b) => Dual (M.Map k v) (k, b) where
     jirelement (k, b) = M.singleton k $ jirelement b
