@@ -3,7 +3,7 @@ module Main where
 import Prelude hiding ((.), id)
 import Control.Category
 import Control.Monad
-import Semilattice
+import Lattice
 import Data.String
 import Data.List as L
 import Data.Map as M
@@ -79,6 +79,14 @@ messedUp originalList = mconcat $ groupings <$> L.permutations (duplicates origi
     duplicates :: [a] -> [a]
     duplicates as = mconcat $ replicate 2 as
 
+-- set of zones each emitting set of events results in a sequence of set of events received by core
+messedUp' :: Ord a => S.Set (S.Set a) -> [S.Set a]
+messedUp' ass = undefined $ S.map (fmap (fmap S.fromList) . groupings . S.toList) ass 
+    where
+        groupings :: [a] -> [[[a]]]
+        groupings as = mconcat $ ((\(i :: [a], t :: [a]) -> ([i] <>) <$> groupings t) <$> zip (init $ tail $ inits as) (init $ tail $ tails as)) <> [[[as]]]
+
+
 main :: IO ()
 main = do
     -- number of possible messed up lists for n events
@@ -88,22 +96,23 @@ main = do
     -- print $ length $ messedUp [1..4] -- for 4 event it's > 5M
     let shipmentEvents = 
             [
-                picked 0 0 0 0 1 0 3,    -- 3 apples moved from ST 0 to bag 0 in dt 0 in frame 0 in van 0
-                picked 0 0 0 1 2 1 2,    -- 2 bananas moved from ST 1 to bag 0 in dt 0 in frame 0 in van 0, actually it was...
-                picked 0 0 0 1 2 1 4,    -- 4 bananas moved from ST 1 to bag 0 in dt 0 in frame 0 in van 0, and it's ok as long as 4 >= 2
-                picked 0 0 0 0 3 2 1,    -- 1 3 moved from ST 2 to bag 0 in dt 0 in frame 0 in van 0, but it's too few, and there's no more cocunuts in ST 2, so...
-                picked 0 0 0 0 3 3 1,    -- 1 3 moved from ST 3 to bag 0 in dt 0 in frame 0 in van 0, but it's too few, we need more...
-                picked 0 0 0 2 4 4 5,    -- 5 donuts moved from ST 4 to bag 2 in dt 0 in frame 0 in van 0, and from the same ST but to different DT...
-                picked 0 0 1 0 4 4 7,    -- 7 donuts moved from ST 4 to bag 0 in dt 1 in frame 0 in van 0
-                dtManufactured 0 0 0 1,  -- dt 0 in frame 0 in van 0 has been picket totally and it has LPN DT1
-                dtManufactured 0 0 1 2,  -- dt 1 in frame 0 in van 0 has been picket totally and it has LPN DT2
-                frameManufactured 0 0 1, -- frame 0 in van 0 has been loaded and it has LPN F1
-                vanManufactured 0 1      -- 0 has been loaded and it has LPN V1
+                picked 0 0 0 0 1 0 3,    -- 3 of SKU 1 moved from ST 0 to bag 0 in DT 0 in frame 0 in van 0
+                picked 0 0 0 1 2 1 2,    -- 2 of SKU 2 moved from ST 1 to bag 0 in DT 0 in frame 0 in van 0, actually it was...
+                picked 0 0 0 1 2 1 4,    -- 4 of SKU 2 moved from ST 1 to bag 0 in DT 0 in frame 0 in van 0, and it's ok as long as 4 >= 2
+                picked 0 0 0 0 3 2 1,    -- 1 of SKU 3 moved from ST 2 to bag 0 in DT 0 in frame 0 in van 0, but it's too few, and there's no more of SKU 3 in ST 2, so...
+                picked 0 0 0 0 3 3 1,    -- 1 of SKU 3 moved from ST 3 to bag 0 in DT 0 in frame 0 in van 0
+                picked 0 0 0 2 4 4 5,    -- 5 of SKU 4 moved from ST 4 to bag 2 in DT 0 in frame 0 in van 0, and from the same ST but to different DT...
+                picked 0 0 1 0 4 4 7,    -- 7 of SKU 4 moved from ST 4 to bag 0 in DT 1 in frame 0 in van 0
+                dtManufactured 0 0 0 1,  -- DT 0 in frame 0 in van 0 has been picked and it has LPN 1
+                dtManufactured 0 0 1 2,  -- DT 1 in frame 0 in van 0 has been picked and it has LPN 2
+                frameManufactured 0 0 1, -- frame 0 in van 0 has been loaded and it has LPN 1
+                vanManufactured 0 1      -- van 0 has been loaded and it has LPN 1
             ]
-    let shipmentShipment = fromList [(0,(Unambiguous 1,fromList [(0,(Unambiguous 1,fromList [(0,(Unambiguous 1,fromList [(0,fromList [(1,fromList [(0,Increasing {increasing = 3})]),(3,fromList [(2,Increasing {increasing = 1}),(3,Increasing {increasing = 1})])]),(1,fromList [(2,fromList [(1,Increasing {increasing = 4})])]),(2,fromList [(4,fromList [(4,Increasing {increasing = 5})])])])),(1,(Unambiguous 2,fromList [(0,fromList [(4,fromList [(4,Increasing {increasing = 7})])])]))]))]))]
-    print $ all (\es -> (fmap (homo jirelement) <$> es) `checkEventualConsistency` shipmentShipment) (L.take 100000 (messedUp shipmentEvents))  -- True
-    print $ joinScanHomo (prop . jirelement) shipmentEvents `checkAscendingTo` S.fromList [1, 3] -- True
-    print $ homo decompose shipmentShipment 
+    -- let shipmentShipment = fromList [(0,(Unambiguous 1,fromList [(0,(Unambiguous 1,fromList [(0,(Unambiguous 1,fromList [(0,fromList [(1,fromList [(0,Increasing {increasing = 3})]),(3,fromList [(2,Increasing {increasing = 1}),(3,Increasing {increasing = 1})])]),(1,fromList [(2,fromList [(1,Increasing {increasing = 4})])]),(2,fromList [(4,fromList [(4,Increasing {increasing = 5})])])])),(1,(Unambiguous 2,fromList [(0,fromList [(4,fromList [(4,Increasing {increasing = 7})])])]))]))]))]
+    -- print $ all (\es -> (fmap (homo jirelement) <$> es) `checkEventualConsistency` shipmentShipment) (L.take 100000 (messedUp shipmentEvents))  -- True
+    -- print $ joinScanHomo (prop . compose) (S.singleton <$> shipmentEvents) `checkAscendingTo` S.fromList [1, 3] -- True
+    -- print $ homo decompose shipmentShipment 
+    return ()
     
     -- print $ all (`checkEventualConsistency` (S.Set {growingSet = S.fromList ["1","3"]})) ((propagateHomo prop . fmap (fmap joinAll) <$> (L.take 100000 (messedUp shipmentEvents))))
 

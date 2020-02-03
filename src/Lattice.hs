@@ -1,8 +1,8 @@
-module Semilattice (
+module Lattice (
     PartialOrd(..),
     isAscending,
     isDescending,
-    Semilattice(..),
+    Lattice(..),
     joinAll,
     meetAll,
     joinScan,
@@ -11,7 +11,8 @@ module Semilattice (
     checkDescending,
     checkAscendingTo,
     checkDescendingTo,
-    checkEventualConsistency,    
+    checkEventualConsistency,
+    Distributive(..),
     Homo(..),
     joinScanHomo,
     meetScanHomo,
@@ -51,9 +52,13 @@ import Data.Void
 import Data.Maybe
 import Data.String
 
+type DiscreteOrd = Eq -- antichain
+
+type TotalOrd = Ord -- chain
+
 -- | Partial order
 -- | (Eq is discrete order)
-class Eq p => PartialOrd p where
+class DiscreteOrd p => PartialOrd p where
     -- a == b => a +> b and b +> a -- reflexivity
     -- a +> b and b +> a => a == b - antisymmetry
     -- a +> b +> c => a +> c - transitivity
@@ -77,7 +82,22 @@ isDescending :: PartialOrd s => [s] -> Bool
 isDescending (s1:rest@(s2:_)) = s1 +> s2 && isDescending rest
 isDescending _ = True
 
-class PartialOrd s => Semilattice s where
+-- monotonic function
+newtype Mono a b = Mono { mono :: a -> b }
+
+instance Category Mono where
+    id = Mono id
+    h1 . h2 = Mono $ mono h1 . mono h2 
+
+-- joinScanHomo :: (Lattice b, Bounded b) => Homo a b -> [a] -> [b]
+-- joinScanHomo h = scanl (\b a -> b \/ homo h a) minBound
+
+-- meetScanHomo :: (Lattice b, Bounded b) => Homo a b -> [a] -> [b]
+-- meetScanHomo h = scanl (\b a -> b /\ homo h a) maxBound
+
+
+--
+class PartialOrd s => Lattice s where
     -- a \/ (b  \/ c) = (a \/ b) \/ c - associativity
     -- a \/ b = b \/ a - commutativity
     -- a \/ a = a idempotence
@@ -92,36 +112,43 @@ class PartialOrd s => Semilattice s where
     -- a \/ minBound = a = minBound \/ a 
     -- a /\ maxBound = a = maxBound /\ a 
 
-joinAll :: (Foldable f, Semilattice s, Bounded s) => f s -> s
+joinAll :: (Foldable f, Lattice s, Bounded s) => f s -> s
 joinAll = Prelude.foldr (\/) minBound
 -- if f s is bounded semilattice then it's a propagator
 
-meetAll :: (Foldable f, Semilattice s, Bounded s) => f s -> s
+meetAll :: (Foldable f, Lattice s, Bounded s) => f s -> s
 meetAll = Prelude.foldr (/\) maxBound
 -- if f s is bounded semilattice then it's a propagator
 
-joinScan :: (Semilattice s, Bounded s) => [s] -> [s]
+joinScan :: (Lattice s, Bounded s) => [s] -> [s]
 joinScan = scanl' (\/) minBound
 
-meetScan :: (Semilattice s, Bounded s) => [s] -> [s]
+meetScan :: (Lattice s, Bounded s) => [s] -> [s]
 meetScan = scanl' (/\) maxBound
 
--- these checks Semilattice laws
-checkAscending :: (Semilattice s, Bounded s) => [s] -> Bool
+-- physical ordering to systemic orderings
+joinChains :: (Lattice a, Bounded a) => [a] -> [[a]]
+joinChains = fmap joinScan . L.permutations
+
+meetChains :: (Lattice a, Bounded a) => [a] -> [[a]]
+meetChains = fmap meetScan . L.permutations
+
+-- these checks Lattice laws
+checkAscending :: (Lattice s, Bounded s) => [s] -> Bool
 checkAscending = isAscending . joinScan
 
-checkDescending :: (Semilattice s, Bounded s) => [s] -> Bool
+checkDescending :: (Lattice s, Bounded s) => [s] -> Bool
 checkDescending = isDescending . meetScan
 
-checkAscendingTo :: (Semilattice s, Bounded s) => [s] -> s -> Bool
+checkAscendingTo :: (Lattice s, Bounded s) => [s] -> s -> Bool
 checkAscendingTo [] final = final == minBound
 checkAscendingTo ss final = let ss' = joinScan ss in isAscending ss' && last ss' == final
 
-checkDescendingTo :: (Semilattice s, Bounded s) => [s] -> s -> Bool
+checkDescendingTo :: (Lattice s, Bounded s) => [s] -> s -> Bool
 checkDescendingTo [] final = final == maxBound
 checkDescendingTo ss final = let ss' = meetScan ss in isDescending ss' && last ss' == final
 
-checkEventualConsistency :: (Semilattice s, Bounded s) => [[s]] -> s -> Bool
+checkEventualConsistency :: (Lattice s, Bounded s) => [[s]] -> s -> Bool
 checkEventualConsistency [] final = final == minBound
 checkEventualConsistency ss final = checkAscendingTo (joinAll <$> ss) final
 
@@ -132,14 +159,14 @@ instance Category Homo where
     id = Homo id
     h1 . h2 = Homo $ homo h1 . homo h2 
 
-joinScanHomo :: (Semilattice b, Bounded b) => Homo a b -> [a] -> [b]
+joinScanHomo :: (Lattice b, Bounded b) => Homo a b -> [a] -> [b]
 joinScanHomo h = scanl (\b a -> b \/ homo h a) minBound
 
-meetScanHomo :: (Semilattice b, Bounded b) => Homo a b -> [a] -> [b]
+meetScanHomo :: (Lattice b, Bounded b) => Homo a b -> [a] -> [b]
 meetScanHomo h = scanl (\b a -> b /\ homo h a) maxBound
 
 --
-data Proc a b = forall s. (Semilattice s, Bounded s) => Proc { phomo :: Homo a s, pf :: s -> b }
+data Proc a b = forall s. (Lattice s, Bounded s) => Proc { phomo :: Homo a s, pf :: s -> b }
 
 joinScanProc :: Proc a b -> [a] -> [b]
 joinScanProc (Proc h m) = fmap m . joinScanHomo h
@@ -157,7 +184,7 @@ instance Applicative (Proc a) where
             foo = Homo (const ())
     (Proc fh fm) <*> (Proc ah am) = Proc (Homo $ \i -> (homo fh i, homo ah i)) (\(fs, as) -> fm fs (am as))
 
-procid :: (Semilattice a, Bounded a) => Proc a a
+procid :: (Lattice a, Bounded a) => Proc a a
 procid = Proc id id
 
 procbimap :: Homo a' a -> (b -> b') -> Proc a b -> Proc a' b'
@@ -167,7 +194,7 @@ procbimap h m (Proc ph pm) = Proc (ph . h) (m . pm)
 instance PartialOrd () where
     () +> () = True
 
-instance Semilattice () where
+instance Lattice () where
     _ \/ _ = ()
     _ /\ _ = ()
 
@@ -177,7 +204,7 @@ instance Semilattice () where
 instance PartialOrd (Proxy a) where
     Proxy +> Proxy = True
 
-instance Semilattice (Proxy a) where
+instance Lattice (Proxy a) where
     _ \/ _ = Proxy
     _ /\ _ = Proxy
 
@@ -192,7 +219,7 @@ deriving instance Eq a => Eq (Increasing a)
 instance Ord a => PartialOrd (Increasing a) where
     (Increasing a) +> (Increasing b) = a >= b
     
-instance Ord a => Semilattice (Increasing a) where
+instance Ord a => Lattice (Increasing a) where
     (Increasing a) \/ (Increasing b) = Increasing (max a b)
     (Increasing a) /\ (Increasing b) = Increasing (min a b)
 
@@ -227,7 +254,7 @@ deriving instance Eq a => Eq (Decreasing a)
 instance Ord a => PartialOrd (Decreasing a) where
     Decreasing a +> Decreasing b = a <= b
 
-instance Ord a => Semilattice (Decreasing a) where
+instance Ord a => Lattice (Decreasing a) where
     (Decreasing a) \/ (Decreasing b) = Decreasing (min a b)
     (Decreasing a) /\ (Decreasing b) = Decreasing (max a b)
 
@@ -250,7 +277,7 @@ propagateDecrease f (Decreasing a) = Decreasing (f a) -- f must be monotone!
 instance Ord a => PartialOrd (Set a) where
     (+>) = (>=)
 
-instance Ord a => Semilattice (Set a) where
+instance Ord a => Lattice (Set a) where
     (\/) = S.union
     (/\) = S.intersection
 
@@ -279,7 +306,7 @@ instance Ord a => PartialOrd (Same a) where
     Ambiguous s1 +> _ = True
     _ +> Ambiguous s2 = True
 
-instance Ord a => Semilattice (Same a) where
+instance Ord a => Lattice (Same a) where
     Unknown \/ p = p
     p \/ Unknown = p
     Ambiguous as \/ Unambiguous a = Ambiguous (S.insert a as) 
@@ -305,7 +332,7 @@ propagateSame f (Ambiguous as) = Ambiguous (S.map f as)
 instance PartialOrd a => PartialOrd (Identity a) where
     Identity a1 +> Identity a2 = a1 +> a2
 
-instance Semilattice a => Semilattice (Identity a) where
+instance Lattice a => Lattice (Identity a) where
     Identity a1 \/ Identity a2 = Identity $ a1 \/ a2
     Identity a1 /\ Identity a2 = Identity $ a1 /\ a2
 
@@ -318,7 +345,7 @@ instance PartialOrd a => PartialOrd (Maybe a) where
     _ +> Nothing = True
     Just a +> Just b = a +> b
 
-instance Semilattice a => Semilattice (Maybe a) where
+instance Lattice a => Lattice (Maybe a) where
     Nothing \/ ma = ma
     ma \/ Nothing = ma
     Just a \/ Just b = Just (a \/ b)
@@ -326,42 +353,42 @@ instance Semilattice a => Semilattice (Maybe a) where
     ma /\ Nothing = Nothing
     Just a /\ Just b = Just (a /\ b)
 
-instance (Bounded a, Semilattice a) => Bounded (Maybe a) where
+instance (Bounded a, Lattice a) => Bounded (Maybe a) where
     minBound = Nothing
     maxBound = Just maxBound
 
-propagateMaybe :: (Semilattice a, Bounded a) => Maybe a -> a -- homomorphism
+propagateMaybe :: (Lattice a, Bounded a) => Maybe a -> a -- homomorphism
 propagateMaybe Nothing = minBound
 propagateMaybe (Just a) = a
 
-propagateIsJust :: Semilattice a => Maybe a -> Increasing Bool -- homomorphism
+propagateIsJust :: Lattice a => Maybe a -> Increasing Bool -- homomorphism
 propagateIsJust = Increasing . isJust
 
-propagateIsNothing :: Semilattice a => Maybe a -> Decreasing Bool -- homomorphism
+propagateIsNothing :: Lattice a => Maybe a -> Decreasing Bool -- homomorphism
 propagateIsNothing = Decreasing . isNothing
 
 --
 instance (Ord k, PartialOrd v) => PartialOrd (M.Map k v) where
     m1 +> m2 = M.isSubmapOfBy (<+) m2 m1
 
-instance (Ord k, Semilattice v) => Semilattice (M.Map k v) where
+instance (Ord k, Lattice v) => Lattice (M.Map k v) where
     (\/) = M.unionWith (\/)
     (/\) = M.intersectionWith (/\)
 
-instance (Ord k, Enum k, Bounded k, Semilattice v, Bounded v) => Bounded (M.Map k v) where
+instance (Ord k, Enum k, Bounded k, Lattice v, Bounded v) => Bounded (M.Map k v) where
     minBound = M.empty 
     maxBound = M.fromList $ (,maxBound) <$> [minBound..] 
 
-propagateMap :: (Ord k, Semilattice s, Bounded s, Semilattice s, Bounded s') => Homo s s' -> Homo (M.Map k s) (M.Map k s')
+propagateMap :: (Ord k, Lattice s, Bounded s, Lattice s, Bounded s') => Homo s s' -> Homo (M.Map k s) (M.Map k s')
 propagateMap h = Homo $ fmap (homo h)
 
-propagateMapEntry :: (Ord k, Semilattice s, Bounded s) => k -> Homo (M.Map k s) s
+propagateMapEntry :: (Ord k, Lattice s, Bounded s) => k -> Homo (M.Map k s) s
 propagateMapEntry k = Homo $ fromMaybe minBound . M.lookup k
 
-propagateMapKeys :: (Ord k, Semilattice s, Bounded s) => Homo (M.Map k s) (Set k)
+propagateMapKeys :: (Ord k, Lattice s, Bounded s) => Homo (M.Map k s) (Set k)
 propagateMapKeys = Homo M.keysSet
 
-propagateMapValues :: (Ord k, Semilattice s, Bounded s) => Homo (M.Map k s) s
+propagateMapValues :: (Ord k, Lattice s, Bounded s) => Homo (M.Map k s) s
 propagateMapValues = Homo $ L.foldl (\/) minBound
 
 foo' :: Num n => M.Map k (Increasing n) -> Increasing n
@@ -371,16 +398,16 @@ foo' map = Increasing $ sum $ increasing <$> map
 instance (PartialOrd a, PartialOrd b) => PartialOrd (a, b) where
     (a1, b1) +> (a2, b2) = a1 +> a2 &&  b1 +> b2
 
-instance (Semilattice a, Semilattice b) => Semilattice (a, b) where
+instance (Lattice a, Lattice b) => Lattice (a, b) where
     (a1, b1) \/ (a2, b2) = (a1 \/ a2, b1 \/ b2)
     (a1, b1) /\ (a2, b2) = (a1 /\ a2, b1 /\ b2)
 
 -- instance (Bounded a, Bounded b) => Bounded (a, b) where -- in GHC.Enum
 
-propagateFst :: (Semilattice a, Semilattice b) => Homo (a, b) a
+propagateFst :: (Lattice a, Lattice b) => Homo (a, b) a
 propagateFst = Homo fst
 
-propagateSnd :: (Semilattice a, Semilattice b) => Homo (a, b) b
+propagateSnd :: (Lattice a, Lattice b) => Homo (a, b) b
 propagateSnd = Homo snd
 
 --
@@ -390,7 +417,7 @@ instance (PartialOrd a, PartialOrd b) => PartialOrd (Either a b) where
     Left _ +> Right _ = False
     Right _ +> Left _ = True
 
-instance (Semilattice a, Semilattice b) => Semilattice (Either a b) where
+instance (Lattice a, Lattice b) => Lattice (Either a b) where
     Left a1 \/ Left a2 = Left (a1 \/ a2)
     Right b1 \/ Right b2 = Right (b1 \/ b2)
     Left _ \/ r@(Right _) = r
@@ -416,89 +443,115 @@ instance (Bounded a, Bounded b) => Bounded (Either a b) where
 -- f :: a -> b
 -- a -> (b -> b)
 
+-- 
+class Lattice s => Distributive s
+    -- a /\ (b \/ c) = (a /\ b) \/ (a \/ c)
+
+instance Distributive ()
+instance Distributive (Proxy a)
+instance Ord a => Distributive (Set a)
+instance Ord a => Distributive (Increasing a)
+instance Ord a => Distributive (Decreasing a)
+instance Ord a => Distributive (Same a)
+instance Distributive a => Distributive (Identity a)
+instance Distributive a => Distributive (Maybe a)
+instance (Ord k, Distributive v) => Distributive (M.Map k v)
+instance (Distributive a, Distributive b) => Distributive (a, b)
+instance (Distributive a, Distributive b) => Distributive (Either a b)
+
 -- | Dual
-class (Semilattice s, Bounded s, Ord s') => Dual s s' | s -> s' where
-    -- minimal (jirelement|compose, decompose)
-    -- compose . decompose = id
-    decompose :: Homo s (Set s')
-    compose :: Homo (Set s') s
-    compose = Homo $ \set -> S.foldl' (\s b -> s \/ (homo jirelement) b) minBound set
+class (Distributive s, Bounded s, Ord s') => Dual s s' | s -> s' where
+    -- minimal (jirelement|compose, reduce)
+    -- compose . reduce = id
+    reduce :: Homo s (Set s')
+    -- compose :: Homo (Set s') s
+    -- compose = Homo $ \set -> S.foldl' (\s b -> s \/ jirelement b) minBound set
     -- join-irreducible element
-    jirelement :: Homo s' s
-    jirelement = Homo $ \s' -> homo compose $ S.singleton s'
+    jirelement :: s' -> s
+    -- jirelement s' = homo compose $ S.singleton s'
 
 dmapToLattice :: (Dual a a', Dual b b') => Homo (Set a') (Set b') -> Homo a b
-dmapToLattice h = compose . h . decompose
+dmapToLattice h = undefined 
+-- dmapToLattice h = compose . h . reduce
 
 dmapToSets :: (Dual a a', Dual b b') => Homo a b -> Homo (Set a') (Set b')
-dmapToSets h = decompose . h . compose
+dmapToSets h = undefined
+-- dmapToSets h = reduce . h . compose
+
+-- physical ordering to systemic orderings
+joinCompositions :: Dual a a' => [a'] -> [[a]]
+joinCompositions = fmap joinScan . L.permutations . fmap jirelement
+
+meetCompositions :: Dual a a' => [a'] -> [[a]]
+meetCompositions = fmap meetScan . L.permutations . fmap jirelement
+
 
 instance Dual () () where
-    compose = Homo $ const ()
-    decompose = Homo $ const $ S.empty
+    jirelement = id
+    reduce = Homo $ const $ S.empty
 
 instance Dual (Proxy a) () where
-    compose = Homo $ const Proxy
-    decompose = Homo $ const $ S.empty
+    jirelement () = Proxy
+    reduce = Homo $ const $ S.empty
 
 instance (Ord a, Bounded a) => Dual (Decreasing a) a where
-    jirelement = Homo Decreasing
-    decompose = Homo $ S.singleton . decreasing
+    jirelement = Decreasing
+    reduce = Homo $ S.singleton . decreasing
 
 instance (Ord a, Bounded a) => Dual (Increasing a) a where
-    jirelement = Homo Increasing
-    decompose = Homo $ S.singleton . increasing
+    jirelement = Increasing
+    reduce = Homo $ S.singleton . increasing
 
 instance (Enum a, Bounded a, Ord a) => Dual (Same a) a where
-    jirelement = Homo Unambiguous
-    decompose = Homo decompose'
+    jirelement = Unambiguous
+    reduce = Homo reduce'
         where
-            decompose' Unknown = mempty
-            decompose' (Unambiguous a) = S.singleton a
-            decompose' (Ambiguous as) = as
+            reduce' Unknown = mempty
+            reduce' (Unambiguous a) = S.singleton a
+            reduce' (Ambiguous as) = as
 
 instance (Ord a, Enum a, Bounded a) => Dual (Set a) a where
-    compose = id
-    decompose = id
+    jirelement = S.singleton
+    reduce = id
 
 -- higher-kinded duals
 instance Dual a b => Dual (Identity a) b where
-    jirelement = Homo $ Identity . homo jirelement
-    decompose = Homo $ \(Identity a) -> homo decompose a
+    jirelement = Identity . jirelement
+    reduce = Homo $ \(Identity a) -> homo reduce a
 
 instance Dual a b => Dual (Maybe a) (Maybe b) where -- ?
-    jirelement = Homo jirelement'
+    jirelement = jirelement'
         where
             jirelement' Nothing = Nothing
-            jirelement' (Just b) = Just $ homo jirelement b
-    decompose = Homo decompose'
+            jirelement' (Just b) = Just $ jirelement b
+    reduce = Homo reduce'
         where
-            decompose' Nothing = S.empty
-            decompose' (Just a) = S.fromList (Just <$> S.toList (homo decompose a)) -- ?
+            reduce' Nothing = S.empty
+            reduce' (Just a) = S.fromList (Just <$> S.toList (homo reduce a)) -- ?
 
 instance (Dual a b, Dual c d) => Dual (Either a c) (Either b d) where
-    jirelement = Homo jirelement'
+    jirelement = jirelement'
         where
-            jirelement' (Left b) = Left $ homo jirelement b
-            jirelement' (Right d) = Right $ homo jirelement d
-    decompose = Homo decompose'
+            jirelement' (Left b) = Left $ jirelement b
+            jirelement' (Right d) = Right $ jirelement d
+    reduce = Homo reduce'
         where
-            decompose' (Left a) = S.fromList (Left <$> S.toList (homo decompose a))
-            decompose' (Right c) = S.fromList (Right <$> S.toList (homo decompose c))
+            reduce' (Left a) = S.fromList (Left <$> S.toList (homo reduce a))
+            reduce' (Right c) = S.fromList (Right <$> S.toList (homo reduce c))
 
 instance (Dual a b, Dual c d) => Dual (a, c) (Either b d) where
-    jirelement = Homo jirelement'
+    jirelement = jirelement'
         where
-            jirelement' (Left b) = (homo jirelement b, minBound) 
-            jirelement' (Right d) = (minBound, homo jirelement d)
-    decompose = Homo decompose'
+            jirelement' (Left b) = (jirelement b, minBound) 
+            jirelement' (Right d) = (minBound, jirelement d)
+    reduce = Homo reduce'
         where
-            decompose' (a, c) = S.fromList (Left <$> S.toList (homo decompose a)) `S.union` S.fromList (Right <$> S.toList (homo decompose c))
+            reduce' (a, c) = S.fromList (Left <$> S.toList (homo reduce a)) `S.union` S.fromList (Right <$> S.toList (homo reduce c))
 
 instance (Ord k, Enum k, Bounded k, Dual v b) => Dual (M.Map k v) (k, b) where
-    jirelement = Homo jirelement'
+    jirelement = jirelement'
         where
-            jirelement' (k, b) = M.singleton k $ homo jirelement b
-    decompose = Homo decompose'
+            jirelement' (k, b) = M.singleton k $ jirelement b
+    reduce = Homo reduce'
         where
-            decompose' m = S.fromList (M.toList m >>= (\(k, v) -> (k,) <$> S.toList (homo decompose v)))
+            reduce' m = S.fromList (M.toList m >>= (\(k, v) -> (k,) <$> S.toList (homo reduce v)))
