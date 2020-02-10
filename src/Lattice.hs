@@ -460,15 +460,15 @@ instance (Distributive a, Distributive b) => Distributive (a, b)
 instance (Distributive a, Distributive b) => Distributive (Either a b)
 
 -- | Dual
-class (Distributive s, Bounded s, Ord s') => Dual s s' | s -> s' where
-    -- minimal (jirelement|compose, reduce)
-    -- compose . reduce = id
-    reduce :: Homo s (Set s')
-    -- compose :: Homo (Set s') s
-    -- compose = Homo $ \set -> S.foldl' (\s b -> s \/ jirelement b) minBound set
+class (Distributive s, Bounded s) => Dual s s' | s -> s' where
     -- join-irreducible element
     jirelement :: s' -> s
-    -- jirelement s' = homo compose $ S.singleton s'
+
+accumulate :: Dual s s' => Homo (Set s') s -- it's a homomorphism indeed
+accumulate = Homo $ \set -> S.foldl' (\s s' -> s \/ jirelement s') minBound set
+
+bar :: Lattice a => Homo (Set s') a -> s' -> a -> a
+bar h s' a = homo h (S.singleton s') \/ a
 
 dmapToLattice :: (Dual a a', Dual b b') => Homo (Set a') (Set b') -> Homo a b
 dmapToLattice h = undefined 
@@ -488,70 +488,70 @@ meetCompositions = fmap meetScan . L.permutations . fmap jirelement
 
 instance Dual () () where
     jirelement = id
-    reduce = Homo $ const $ S.empty
+    -- reduce = Homo $ const $ S.empty
 
 instance Dual (Proxy a) () where
     jirelement () = Proxy
-    reduce = Homo $ const $ S.empty
+    -- reduce = Homo $ const $ S.empty
 
 instance (Ord a, Bounded a) => Dual (Decreasing a) a where
     jirelement = Decreasing
-    reduce = Homo $ S.singleton . decreasing
+    -- reduce = Homo $ S.singleton . decreasing
 
 instance (Ord a, Bounded a) => Dual (Increasing a) a where
     jirelement = Increasing
-    reduce = Homo $ S.singleton . increasing
+    -- reduce = Homo $ S.singleton . increasing
 
 instance (Enum a, Bounded a, Ord a) => Dual (Same a) a where
     jirelement = Unambiguous
-    reduce = Homo reduce'
-        where
-            reduce' Unknown = mempty
-            reduce' (Unambiguous a) = S.singleton a
-            reduce' (Ambiguous as) = as
+    -- reduce = Homo reduce'
+    --     where
+    --         reduce' Unknown = mempty
+    --         reduce' (Unambiguous a) = S.singleton a
+    --         reduce' (Ambiguous as) = as
 
 instance (Ord a, Enum a, Bounded a) => Dual (Set a) a where
     jirelement = S.singleton
-    reduce = id
+    -- reduce = id
 
 -- higher-kinded duals
 instance Dual a b => Dual (Identity a) b where
     jirelement = Identity . jirelement
-    reduce = Homo $ \(Identity a) -> homo reduce a
+    -- reduce = Homo $ \(Identity a) -> homo reduce a
 
 instance Dual a b => Dual (Maybe a) (Maybe b) where -- ?
     jirelement = jirelement'
         where
             jirelement' Nothing = Nothing
             jirelement' (Just b) = Just $ jirelement b
-    reduce = Homo reduce'
-        where
-            reduce' Nothing = S.empty
-            reduce' (Just a) = S.fromList (Just <$> S.toList (homo reduce a)) -- ?
+    -- reduce = Homo reduce'
+    --     where
+    --         reduce' Nothing = S.empty
+    --         reduce' (Just a) = S.fromList (Just <$> S.toList (homo reduce a)) -- ?
 
 instance (Dual a b, Dual c d) => Dual (Either a c) (Either b d) where
     jirelement = jirelement'
         where
             jirelement' (Left b) = Left $ jirelement b
             jirelement' (Right d) = Right $ jirelement d
-    reduce = Homo reduce'
-        where
-            reduce' (Left a) = S.fromList (Left <$> S.toList (homo reduce a))
-            reduce' (Right c) = S.fromList (Right <$> S.toList (homo reduce c))
+    -- reduce = Homo reduce'
+    --     where
+    --         reduce' (Left a) = S.fromList (Left <$> S.toList (homo reduce a))
+    --         reduce' (Right c) = S.fromList (Right <$> S.toList (homo reduce c))
 
 instance (Dual a b, Dual c d) => Dual (a, c) (Either b d) where
     jirelement = jirelement'
         where
             jirelement' (Left b) = (jirelement b, minBound) 
             jirelement' (Right d) = (minBound, jirelement d)
-    reduce = Homo reduce'
-        where
-            reduce' (a, c) = S.fromList (Left <$> S.toList (homo reduce a)) `S.union` S.fromList (Right <$> S.toList (homo reduce c))
+    -- reduce = Homo reduce'
+    --     where
+    --         reduce' (a, c) = S.fromList (Left <$> S.toList (homo reduce a)) `S.union` S.fromList (Right <$> S.toList (homo reduce c))
 
 instance (Ord k, Enum k, Bounded k, Dual v b) => Dual (M.Map k v) (k, b) where
     jirelement = jirelement'
         where
             jirelement' (k, b) = M.singleton k $ jirelement b
-    reduce = Homo reduce'
-        where
-            reduce' m = S.fromList (M.toList m >>= (\(k, v) -> (k,) <$> S.toList (homo reduce v)))
+    -- reduce = Homo reduce'
+    --     where
+    --         reduce' m = S.fromList (M.toList m >>= (\(k, v) -> (k,) <$> S.toList (homo reduce v)))
