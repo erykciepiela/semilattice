@@ -87,26 +87,6 @@ isDescending = isDescending' . F.toList
         isDescending' (s1:rest@(s2:_)) = s1 +> s2 && isDescending rest
         isDescending' _ = True
 
-data Chain p where 
-    Chain :: TotalOrd p => p -> Chain p
-
-deriving instance (TotalOrd p, Bounded p) => Bounded (Chain p)
-
-instance TotalOrd a => PartialOrd (Chain a) where
-    Chain p1 +> Chain p2 = p1 >= p2
-
-instance TotalOrd a => Lattice (Chain a) where
-    Chain a1 /\ Chain a2 = Chain $ min a1 a2
-    Chain a1 \/ Chain a2 = Chain $ max a1 a2
-
-instance (TotalOrd a, Bounded a) => BoundedLattice (Chain a)
-
-data Antichain p where
-    Antichain :: DiscreteOrd p => p -> Antichain p
-
-instance DiscreteOrd p => PartialOrd (Antichain p) where
-    Antichain p1 +> Antichain p2 = p1 == p2
-
 -- monotonic function
 newtype Mono a b = Mono { mono :: a -> b }
 
@@ -195,6 +175,30 @@ checkDescendingTo ss final = let ss' = meetScan ss in isDescending ss' && last s
 checkEventualConsistency :: (BoundedLattice s, DiscreteOrd s) => [[s]] -> s -> Bool
 checkEventualConsistency [] final = final == minBound
 checkEventualConsistency ss final = checkAscendingTo (joinAll <$> ss) final
+
+--
+data Chain p where 
+    Chain :: TotalOrd p => p -> Chain p
+
+instance PartialOrd (Chain a) where
+    Chain p1 +> Chain p2 = p1 >= p2
+
+instance Lattice (Chain a) where
+    Chain a1 /\ Chain a2 = Chain $ min a1 a2
+    Chain a1 \/ Chain a2 = Chain $ max a1 a2
+
+instance (TotalOrd p, Bounded p) => Bounded (Chain p) where
+    minBound = Chain minBound
+    maxBound = Chain maxBound
+
+instance (Ord a, Bounded a) => BoundedLattice (Chain a)
+
+--
+data Antichain p where
+    Antichain :: DiscreteOrd p => p -> Antichain p
+
+instance DiscreteOrd p => PartialOrd (Antichain p) where
+    Antichain p1 +> Antichain p2 = p1 == p2
 
 --
 newtype Homo a b = Homo { homo :: a -> b }

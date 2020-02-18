@@ -1,32 +1,57 @@
-# Order, Join Semilattices and Conflict-Free Replicated Data Types
+# Order, Lattices and Conflict-Free Replicated Data Types
 
 1. Conflict-Free Replicated Data Types
-    1. Distributed state replicas instead of central state
-        1. Fast local reads
-        1. Fast local writes - temporary inconsistencies
-        1. Not blocking local read/writes - network partitioning tolerance
-        1. Replica synchronisation at arbitrary times - eventual consistency
+    1. Instead of shared central state, shared state in distributed replicas
+        1. Fast, not blocking local reads
+        1. Fast, not blocking local writes - temporary inconsistencies between replicas
+        1. Conflict-free replica synchronisation at arbitrary times - eventual consistency
+        1. No central state - no single point of failure
         1. Replacement for RPC-like APIs
-    1. Advatageous even with single replica
+    1. Advatageous even when single replica
         1. Irrefutable writes - accepting writes as undeniable facts
-        1. Append-only writes - data can only grow
+        1. Append-only writes - data can only "grow"
         1. Transaction-less - consequence of the above
         1. Contradictory writes - possible but explicitly modeled
     1. New ACID
-        1. Let `+` be an "append" opertor
-        1. Associativity - `a + (b + c) == (a + b) + c`, handles arbitrary grouping of appends
-        1. Commutativity - `a + b == b + a` - handles out-of-order appends
-        1. Idempotence - `a + a == a` - handles duplicate appends
-        1. Distributed
-    1. *Join semilattice*
-        1. Abstraction from maths that is equivalent to ACID
-        1. Algebra `(S, \/)` where
-            1. `S` is set of all possible values
-            1. `\/` (called *join*) is associative, commutative, idempotent binary operator
-        1. Additionally, when `0` (called *neutral element*) is an element of `S` such that for all `a` in `S`, `0 \/ a == a == a \/ 0`, we call it *bounded join semilattice*.
-            1. `S` is closed under `\/`: for all `a` and `b` in `S`, `a \/ b` also in `S` - we can always join values
-        1. Associativity lets us skip parenths: `a \/ (b \/ c) == a \/ b \/ c`
-        1. Associativity+commutativity+idempotence+neutral element in action: `a \/ (b \/ c) == 0 \/ ((b \/ a) \/ (c \/ c))`
+        1. Let `a`, `b`, and `c` be replicas and `+` be a replicat "merge" operation
+        1. Associativity - `a + (b + c) == (a + b) + c`, handles arbitrary grouping of merges
+        1. Commutativity - `a + b == b + a` - handles out-of-order merges
+        1. Idempotence - `a + a == a` - handles duplicate merges
+        1. Distributed - remote replicas merges
+1. Maths behind CRDTs
+    1. *Type* - a collection of values
+    1. *Partial order* - values of type can be compared with `+>` (a kind of "greater or equal")
+        1. `a +> a` - reflexivity
+        1. `a +> b, b +> a => a == b` - antisymmetry
+        1. `a +> b +> c => a +> c` - transitivity
+        1. note that there might be that neither `a +> b` nor `b +> a`, `a` and `b` not comparable, that's why "partial"
+    1. *Lattice*
+        1. Algebra `(S, \/, /\)` where
+            1. `S` is a type
+            1. `\/` (*join*) is a binary operator
+                1. closed under `S` - if `a` and `b` belongs to `S` then `a \/ b` also belongs to `S`
+                1. associative - `a \/ (b \/ c) = (a \/ b) \/ c`
+                1. commutative - `a \/ b = b \/ a`
+                1. idempotent - `a \/ a = a`
+                1. `a \/ b +> a`
+            1. `/\` (*meet*) is a binary operator
+                1. closed under `S`
+                1. associative - `a /\ (b /\ c) = (a /\ b) /\ c`
+                1. commutative - `a /\ b = b /\ a`
+                1. idempotent -  `a /\ a = a`
+                1. `a +> a /\ b`
+    1. *Bounded lattice*
+        1. Algebra `(S, /\, \/, 0, 1)`
+            1. `0` (*bottom*) is a value belonging to `S`
+                1. for all `a` in `S`, `0 \/ a == a == a \/ 0`
+            1. `1` (*top*) is a value belonging to `S`
+                1. for all `a` in `S`, `1 /\ a == a == a /\ 1`
+    1. *Finite lattice*
+        1. Lattice `(S, \/, /\)` where `S` is finite
+    1. *Distributive lattice*
+        1. `a /\ (b \/ c) = (a /\ b) \/ (a \/ c)`
+    1. *Dual*
+        1. 
     1. (Bounded) join semilattices examples
         1. `GrowingSet` is BJS
             1. Set that can only grow in time
