@@ -255,11 +255,11 @@ instance (Ord a, Bounded a) => BoundedLattice (Increasing a)
 
 propagateIncrease :: (a -> b) -> Increasing a -> Increasing b
 propagateIncrease f (Increasing a) = Increasing (f a) -- f must be monotone!
--- if f is counter-monotine - inverse
+-- if f is counter-monotone - inverse
 -- f (Inc 3 \/ Inc 5) = f (Inc 3) \/ f (Inc 5)
 -- f (Inc 5) = (Inc -3) \/ (Inc -5)
 -- Inc -5 = Inc -3
--- if f is not monotine - (+1)
+-- if f is not monotone - (+1)
 -- f (Inc 3 \/ Inc 5) = f (Inc 3) \/ f (Inc 5)
 -- f (Inc 5) = (Inc 4) \/ (Inc 6)
 -- Inc 6 = Inc 6
